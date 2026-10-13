@@ -393,11 +393,11 @@ export const AuthView: React.FC<AuthViewProps> = ({
 
               {/* IDENTIFICAÇÃO DO MOTOCLUBE */}
               <div className="space-y-1">
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-[#1877F2] font-['Plus_Jakarta_Sans'] tracking-tight">
-                  LOS MOTOKAS MC
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-[#1877F2] font-['Plus_Jakarta_Sans'] tracking-tight leading-none">
+                  LOSMOTOKAS MC
                 </h1>
-                <span className="text-xs uppercase font-extrabold tracking-widest text-neutral-500 block">
-                  Mossoró · Rio Grande do Norte
+                <span className="text-xs uppercase font-extrabold tracking-widest text-neutral-500 block pt-0.5">
+                  Nossa História
                 </span>
                 <p className="text-xs sm:text-sm text-neutral-600 font-medium pt-1 max-w-xs mx-auto leading-relaxed">
                   A rede social oficial da nossa irmandade nas duas rodas.
@@ -471,16 +471,6 @@ export const AuthView: React.FC<AuthViewProps> = ({
                 </div>
               </div>
 
-            </div>
-
-            <div className="text-center mt-4">
-              <button
-                type="button"
-                onClick={onOpenConfig}
-                className="text-xs text-neutral-400 hover:text-neutral-700 underline cursor-pointer"
-              >
-                Conexão Supabase / PostgreSQL
-              </button>
             </div>
           </div>
         ) : (
@@ -820,16 +810,6 @@ export const AuthView: React.FC<AuthViewProps> = ({
                   </form>
                 )}
               </div>
-            </div>
-
-            <div className="text-center mt-3">
-              <button
-                type="button"
-                onClick={onOpenConfig}
-                className="text-xs text-neutral-500 hover:text-neutral-800 font-semibold underline cursor-pointer"
-              >
-                Configurar Conexão do Supabase / PostgreSQL
-              </button>
             </div>
           </div>
         )}

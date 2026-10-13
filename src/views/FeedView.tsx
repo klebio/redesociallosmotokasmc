@@ -54,26 +54,29 @@ export const FeedView: React.FC<FeedViewProps> = ({
           <div className="bg-white rounded-xl shadow-xs border border-neutral-200 overflow-hidden">
             <div className="h-20 bg-gradient-to-r from-[#1877F2] to-[#0866FF] relative p-3">
               <span className="text-[11px] font-bold text-white/90 uppercase tracking-widest block">
-                Capítulo Oficial · Mossoró / RN
+                Rede Social Oficial
               </span>
-              <span className="text-white font-extrabold text-sm block">
-                Los Motokas MC
+              <span className="text-white font-extrabold text-sm block leading-tight">
+                LOSMOTOKAS MC
+              </span>
+              <span className="text-blue-100 text-xs font-semibold block leading-tight mt-0.5">
+                Nossa História
               </span>
             </div>
             <div className="px-4 pb-4 -mt-9 text-center">
               <div className="w-18 h-18 mx-auto rounded-full bg-white p-1 shadow-md border border-neutral-100 overflow-hidden mb-2">
                 <img
                   src="/src/assets/images/escudo_oficial.jpg"
-                  alt="Escudo Oficial Los Motokas MC Mossoró RN"
+                  alt="Escudo Oficial LOSMOTOKAS MC - Nossa História"
                   className="w-full h-full object-cover rounded-full"
                   referrerPolicy="no-referrer"
                 />
               </div>
-              <h3 className="font-extrabold text-neutral-900 text-base font-['Plus_Jakarta_Sans']">
-                LOS MOTOKAS MC
+              <h3 className="font-extrabold text-neutral-900 text-base font-['Plus_Jakarta_Sans'] leading-tight">
+                LOSMOTOKAS MC
               </h3>
               <p className="text-xs text-neutral-500 font-medium mt-0.5">
-                "Tradição, Lealdade e Estrada"
+                Nossa História
               </p>
 
               <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-neutral-100 text-center">
@@ -93,7 +96,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
             </div>
           </div>
 
-          {/* ATALHOS RÁPIDOS DA IRMANDADE */}
+          {/* ATALHOS RÁPIDOS DA IRMANDADE (NOMENCLATURAS ENXUTAS) */}
           <div className="bg-white rounded-xl shadow-xs border border-neutral-200 p-3 space-y-1 text-xs font-semibold text-neutral-700">
             <button
               onClick={() => onNavigateToTab('albums')}
@@ -101,7 +104,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
             >
               <div className="flex items-center gap-2.5">
                 <Camera className="w-4 h-4 text-[#1877F2]" />
-                <span>Galerias & Álbuns de Estrada</span>
+                <span>Galeria</span>
               </div>
               <ChevronRight className="w-3.5 h-3.5 text-neutral-400" />
             </button>
@@ -111,7 +114,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
             >
               <div className="flex items-center gap-2.5">
                 <Flame className="w-4 h-4 text-amber-500" />
-                <span>Minhas Recordações</span>
+                <span>Recordações</span>
               </div>
               <ChevronRight className="w-3.5 h-3.5 text-neutral-400" />
             </button>
@@ -121,7 +124,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
             >
               <div className="flex items-center gap-2.5">
                 <Users className="w-4 h-4 text-emerald-600" />
-                <span>Lista de Membros da Irmandade</span>
+                <span>Membros</span>
               </div>
               <ChevronRight className="w-3.5 h-3.5 text-neutral-400" />
             </button>
@@ -131,7 +134,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
             >
               <div className="flex items-center gap-2.5">
                 <Megaphone className="w-4 h-4 text-red-500" />
-                <span>Comunicados da Diretoria</span>
+                <span>Comunicados</span>
               </div>
               <ChevronRight className="w-3.5 h-3.5 text-neutral-400" />
             </button>

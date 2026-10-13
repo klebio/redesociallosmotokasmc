@@ -16,6 +16,7 @@
   body {
     max-width: 100vw;
     width: 100%;
+    overflow-x: hidden;
     box-sizing: border-box;
   }
 
@@ -30,6 +31,7 @@
     background-color: var(--fb-bg);
     color: var(--fb-text);
     position: relative;
+    overflow-x: hidden;
     -webkit-tap-highlight-color: transparent;
   }
 
@@ -38,10 +40,16 @@
   }
 }
 
-/* Scrollbar suave, visível e fácil de usar para todas as áreas que possuem rolagem */
+/* Scrollbar vertical suave - Barra de rolagem horizontal totalmente eliminada */
 ::-webkit-scrollbar {
   width: 7px;
-  height: 7px;
+  height: 0px;
+}
+
+::-webkit-scrollbar:horizontal {
+  display: none !important;
+  height: 0px !important;
+  width: 0px !important;
 }
 
 ::-webkit-scrollbar-track {

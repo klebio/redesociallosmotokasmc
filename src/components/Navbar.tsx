@@ -28,6 +28,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [notifications, setNotifications] = useState(store.getNotifications());
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
+  const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isConfigured, setIsConfigured] = useState(isSupabaseConfigured());
   const [copiedInvite, setCopiedInvite] = useState(false);
@@ -45,13 +46,11 @@ export const Navbar: React.FC<NavbarProps> = ({
   const unreadNotifs = notifications.filter((n) => !n.read).length;
   const isDiretoria = store.isDiretoria(currentUser);
 
-  const navLinks = [
-    { id: 'feed', label: 'Feed da Irmandade' },
-    { id: 'albums', label: 'Álbuns & Galerias' },
-    { id: 'recordacoes', label: 'Minhas Recordações' },
-    { id: 'membros', label: 'Membros' },
-    { id: 'comunicados', label: 'Comunicados' },
-    ...(isDiretoria ? [{ id: 'admin', label: 'Diretoria' }] : []),
+  // Links primários diretos na barra (nomenclaturas enxutas e organizadas)
+  const primaryNavLinks = [
+    { id: 'feed', label: 'Feed' },
+    { id: 'albums', label: 'Galeria' },
+    { id: 'recordacoes', label: 'Recordações' },
   ];
 
   const handleSwitchUser = (memberId: string) => {
@@ -64,41 +63,44 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="max-w-7xl mx-auto px-3 sm:px-4 h-14 flex items-center justify-between gap-2 sm:gap-4 md:gap-8 w-full max-w-full">
         
         {/* ZONA 1: MARCA & ESCUDO */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
           <button 
             onClick={() => onNavigate('feed')}
-            className="flex items-center gap-2.5 text-left group focus:outline-none"
+            className="flex items-center gap-2 sm:gap-2.5 text-left group focus:outline-none cursor-pointer"
           >
             <div className="w-9 h-9 rounded-full bg-white/10 p-0.5 border border-white/20 flex items-center justify-center overflow-hidden shrink-0 shadow-inner group-hover:scale-105 transition-transform">
               <img 
                 src="/src/assets/images/escudo_oficial.jpg" 
-                alt="Escudo Oficial Los Motokas MC Mossoró RN" 
+                alt="Escudo Oficial Los Motokas MC" 
                 className="w-full h-full object-cover rounded-full"
                 referrerPolicy="no-referrer"
               />
             </div>
-            <div>
-              <span className="font-extrabold tracking-tight text-lg leading-tight uppercase block font-['Plus_Jakarta_Sans']">
-                Los Motokas MC
+            <div className="flex flex-col leading-tight">
+              <span className="font-extrabold tracking-tight text-base sm:text-lg uppercase block font-['Plus_Jakarta_Sans'] leading-none">
+                LOSMOTOKAS MC
               </span>
-              <span className="text-[10px] tracking-widest uppercase text-blue-100 font-semibold block leading-none">
-                Mossoró · RN · Nossa História
+              <span className="text-[10px] sm:text-xs font-semibold text-blue-100 block leading-tight mt-0.5">
+                Nossa História
               </span>
             </div>
           </button>
         </div>
 
-        {/* ZONA 2: LINKS DE NAVEGAÇÃO */}
+        {/* ZONA 2: LINKS DE NAVEGAÇÃO PRINCIPAIS COM ENGRENAGEM DE GESTÃO (DESKTOP) */}
         <nav className="hidden lg:flex items-center gap-1 xl:gap-2">
-          {navLinks.map((link) => {
+          {primaryNavLinks.map((link) => {
             const isActive = currentTab === link.id;
             return (
               <button
                 key={link.id}
-                onClick={() => onNavigate(link.id)}
-                className={`px-3 py-1.5 text-xs xl:text-sm font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
+                onClick={() => {
+                  onNavigate(link.id);
+                  setShowSettingsDropdown(false);
+                }}
+                className={`px-3 py-1.5 text-xs xl:text-sm font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                   isActive 
-                    ? 'bg-white text-[#1877F2] shadow-sm' 
+                    ? 'bg-white text-[#1877F2] shadow-sm font-bold' 
                     : 'text-white/90 hover:bg-white/15 hover:text-white'
                 }`}
               >
@@ -106,35 +108,242 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             );
           })}
+
+          {/* BOTÃO COM ÍCONE DE ENGRENAGEM (GESTAO: MEMBROS, COMUNICADOS, DIRETORIA) NO COMPUTADOR */}
+          <div className="relative">
+            <button
+              onClick={() => {
+                setShowSettingsDropdown(!showSettingsDropdown);
+                setShowNotifDropdown(false);
+                setShowUserDropdown(false);
+              }}
+              className={`px-3 py-1.5 text-xs xl:text-sm font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 cursor-pointer ${
+                ['membros', 'comunicados', 'admin'].includes(currentTab)
+                  ? 'bg-white text-[#1877F2] shadow-sm font-bold'
+                  : 'text-white/90 hover:bg-white/15 hover:text-white'
+              }`}
+              title="Gestão da Irmandade (Membros, Comunicados, Diretoria)"
+            >
+              <Settings className="w-4 h-4" />
+              <span>Gestão</span>
+              <ChevronDown className={`w-3.5 h-3.5 opacity-80 transition-transform ${showSettingsDropdown ? 'rotate-180' : ''}`} />
+            </button>
+
+            {/* DROPDOWN ANCORADO NO BOTÃO GESTÃO DO DESKTOP */}
+            {showSettingsDropdown && (
+              <div className="absolute left-0 mt-2 w-72 bg-white rounded-xl shadow-2xl border border-neutral-200 text-[#1C1E21] py-2 z-50 animate-in fade-in slide-in-from-top-1">
+                <div className="px-3.5 py-2 border-b border-neutral-100 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-extrabold text-neutral-800 uppercase tracking-wider">
+                    <Settings className="w-4 h-4 text-[#1877F2]" />
+                    <span>Gestão da Irmandade</span>
+                  </div>
+                  <span className="text-[10px] bg-blue-50 text-[#1877F2] font-bold px-1.5 py-0.5 rounded">
+                    3 Seções
+                  </span>
+                </div>
+
+                <div className="py-1 space-y-1">
+                  {/* 1. MEMBROS */}
+                  <button
+                    onClick={() => {
+                      onNavigate('membros');
+                      setShowSettingsDropdown(false);
+                    }}
+                    className={`w-full text-left px-3.5 py-2.5 text-xs hover:bg-neutral-100 flex items-center gap-3 transition-colors cursor-pointer ${
+                      currentTab === 'membros' ? 'bg-blue-50 text-[#1877F2] font-bold' : 'text-neutral-700'
+                    }`}
+                  >
+                    <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600 shrink-0">
+                      <Users className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="font-bold text-neutral-900 block text-xs">Membros</span>
+                      <span className="text-[11px] text-neutral-500 font-normal block leading-tight">
+                        Quadro oficial, coletes e motos ({allMembers.length})
+                      </span>
+                    </div>
+                  </button>
+
+                  {/* 2. COMUNICADOS */}
+                  <button
+                    onClick={() => {
+                      onNavigate('comunicados');
+                      setShowSettingsDropdown(false);
+                    }}
+                    className={`w-full text-left px-3.5 py-2.5 text-xs hover:bg-neutral-100 flex items-center gap-3 transition-colors cursor-pointer ${
+                      currentTab === 'comunicados' ? 'bg-blue-50 text-[#1877F2] font-bold' : 'text-neutral-700'
+                    }`}
+                  >
+                    <div className="p-2 rounded-lg bg-red-50 text-red-600 shrink-0">
+                      <Megaphone className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="font-bold text-neutral-900 block text-xs">Comunicados</span>
+                      <span className="text-[11px] text-neutral-500 font-normal block leading-tight">
+                        Editais e informativos da diretoria
+                      </span>
+                    </div>
+                  </button>
+
+                  {/* 3. DIRETORIA */}
+                  {isDiretoria ? (
+                    <button
+                      onClick={() => {
+                        onNavigate('admin');
+                        setShowSettingsDropdown(false);
+                      }}
+                      className={`w-full text-left px-3.5 py-2.5 text-xs hover:bg-neutral-100 flex items-center gap-3 transition-colors cursor-pointer ${
+                        currentTab === 'admin' ? 'bg-amber-50 text-amber-900 font-bold' : 'text-neutral-700'
+                      }`}
+                    >
+                      <div className="p-2 rounded-lg bg-amber-100 text-amber-800 shrink-0">
+                        <ShieldCheck className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-neutral-900 block text-xs">Diretoria</span>
+                          <span className="text-[9px] bg-red-600 text-white px-1.5 py-0.2 rounded font-bold">ADMIN</span>
+                        </div>
+                        <span className="text-[11px] text-neutral-500 font-normal block leading-tight">
+                          Gabinete e gestão de patentes
+                        </span>
+                      </div>
+                    </button>
+                  ) : (
+                    <div className="px-3.5 py-2 text-[11px] text-neutral-400 italic flex items-center gap-2 border-t border-neutral-100 mt-1">
+                      <Shield className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                      <span>Diretoria restrita a administradores</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </nav>
 
-        {/* ZONA 3: AÇÕES, STATUS DO SUPABASE, NOTIFICAÇÕES & CONTA */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          
-          {/* BOTÃO ASSISTENTE SUPABASE */}
-          <button
-            onClick={onOpenConfig}
-            title={isConfigured ? 'Supabase Conectado' : 'Configurar Conexão Supabase'}
-            className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-md transition-colors border ${
-              isConfigured
-                ? 'bg-emerald-500/20 border-emerald-300/40 text-emerald-100 hover:bg-emerald-500/30'
-                : 'bg-amber-500/20 border-amber-300/40 text-amber-100 hover:bg-amber-500/30'
-            }`}
-          >
-            <Database className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">
-              {isConfigured ? 'Supabase Ativo' : 'Conectar Supabase'}
-            </span>
-          </button>
+        {/* ZONA 3: ENGRENAGEM (CELULAR/TABLET), NOTIFICAÇÕES, PERFIL & MENU DOS TRÊS TRAÇOS (TODOS) */}
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+
+          {/* ÍCONE DE ENGRENAGEM VISÍVEL EM CELULAR E TABLETE */}
+          <div className="relative lg:hidden">
+            <button
+              onClick={() => {
+                setShowSettingsDropdown(!showSettingsDropdown);
+                setShowNotifDropdown(false);
+                setShowUserDropdown(false);
+              }}
+              className={`p-2 rounded-full hover:bg-white/15 transition-colors relative text-white focus:outline-none cursor-pointer ${
+                ['membros', 'comunicados', 'admin'].includes(currentTab) ? 'bg-white/20 ring-2 ring-white/30' : ''
+              }`}
+              title="Gestão da Irmandade (Membros, Comunicados, Diretoria)"
+              aria-label="Gestão da Irmandade (Membros, Comunicados, Diretoria)"
+            >
+              <Settings className="w-5 h-5" />
+              {['membros', 'comunicados', 'admin'].includes(currentTab) && (
+                <span className="absolute top-1 right-1 w-2 h-2 bg-amber-400 rounded-full border-2 border-[#1877F2]" />
+              )}
+            </button>
+
+            {/* DROPDOWN DO ÍCONE DE ENGRENAGEM EM DISPOSITIVOS MÓVEIS / TABLET */}
+            {showSettingsDropdown && (
+              <div className="absolute right-0 mt-2 w-72 max-w-[calc(100vw-24px)] bg-white rounded-xl shadow-2xl border border-neutral-200 text-[#1C1E21] py-2 z-50 animate-in fade-in slide-in-from-top-1">
+                <div className="px-3.5 py-2 border-b border-neutral-100 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-extrabold text-neutral-800 uppercase tracking-wider">
+                    <Settings className="w-4 h-4 text-[#1877F2]" />
+                    <span>Gestão da Irmandade</span>
+                  </div>
+                  <span className="text-[10px] bg-blue-50 text-[#1877F2] font-bold px-1.5 py-0.5 rounded">
+                    3 Seções
+                  </span>
+                </div>
+
+                <div className="py-1 space-y-1">
+                  {/* 1. MEMBROS */}
+                  <button
+                    onClick={() => {
+                      onNavigate('membros');
+                      setShowSettingsDropdown(false);
+                    }}
+                    className={`w-full text-left px-3.5 py-2.5 text-xs hover:bg-neutral-100 flex items-center gap-3 transition-colors cursor-pointer ${
+                      currentTab === 'membros' ? 'bg-blue-50 text-[#1877F2] font-bold' : 'text-neutral-700'
+                    }`}
+                  >
+                    <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600 shrink-0">
+                      <Users className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="font-bold text-neutral-900 block text-xs">Membros</span>
+                      <span className="text-[11px] text-neutral-500 font-normal block leading-tight">
+                        Quadro oficial, coletes e motos ({allMembers.length})
+                      </span>
+                    </div>
+                  </button>
+
+                  {/* 2. COMUNICADOS */}
+                  <button
+                    onClick={() => {
+                      onNavigate('comunicados');
+                      setShowSettingsDropdown(false);
+                    }}
+                    className={`w-full text-left px-3.5 py-2.5 text-xs hover:bg-neutral-100 flex items-center gap-3 transition-colors cursor-pointer ${
+                      currentTab === 'comunicados' ? 'bg-blue-50 text-[#1877F2] font-bold' : 'text-neutral-700'
+                    }`}
+                  >
+                    <div className="p-2 rounded-lg bg-red-50 text-red-600 shrink-0">
+                      <Megaphone className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="font-bold text-neutral-900 block text-xs">Comunicados</span>
+                      <span className="text-[11px] text-neutral-500 font-normal block leading-tight">
+                        Editais e informativos da diretoria
+                      </span>
+                    </div>
+                  </button>
+
+                  {/* 3. DIRETORIA */}
+                  {isDiretoria ? (
+                    <button
+                      onClick={() => {
+                        onNavigate('admin');
+                        setShowSettingsDropdown(false);
+                      }}
+                      className={`w-full text-left px-3.5 py-2.5 text-xs hover:bg-neutral-100 flex items-center gap-3 transition-colors cursor-pointer ${
+                        currentTab === 'admin' ? 'bg-amber-50 text-amber-900 font-bold' : 'text-neutral-700'
+                      }`}
+                    >
+                      <div className="p-2 rounded-lg bg-amber-100 text-amber-800 shrink-0">
+                        <ShieldCheck className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-neutral-900 block text-xs">Diretoria</span>
+                          <span className="text-[9px] bg-red-600 text-white px-1.5 py-0.2 rounded font-bold">ADMIN</span>
+                        </div>
+                        <span className="text-[11px] text-neutral-500 font-normal block leading-tight">
+                          Gabinete e gestão de patentes
+                        </span>
+                      </div>
+                    </button>
+                  ) : (
+                    <div className="px-3.5 py-2 text-[11px] text-neutral-400 italic flex items-center gap-2 border-t border-neutral-100 mt-1">
+                      <Shield className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                      <span>Diretoria restrita a administradores</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* SINO DE NOTIFICAÇÕES */}
           <div className="relative">
             <button
               onClick={() => {
                 setShowNotifDropdown(!showNotifDropdown);
+                setShowSettingsDropdown(false);
                 setShowUserDropdown(false);
               }}
-              className="p-2 rounded-full hover:bg-white/15 transition-colors relative text-white focus:outline-none"
+              className="p-2 rounded-full hover:bg-white/15 transition-colors relative text-white focus:outline-none cursor-pointer"
               title="Notificações da Irmandade"
             >
               <Bell className="w-5 h-5" />
@@ -251,16 +460,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </span>
                     {copiedInvite && <span className="text-[10px] bg-blue-100 text-[#1877F2] px-1.5 py-0.5 rounded font-bold">Copiado!</span>}
                   </button>
-                  <button
-                    onClick={() => {
-                      onOpenConfig();
-                      setShowUserDropdown(false);
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs font-medium text-neutral-700 hover:bg-neutral-100 flex items-center gap-2.5"
-                  >
-                    <Database className="w-4 h-4 text-neutral-500" />
-                    Conexão Supabase & SQL
-                  </button>
                 </div>
 
                 {allMembers.length > 1 && (
@@ -339,93 +538,115 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
               </div>
 
-              <span className="text-[10px] bg-white/20 text-white px-2 py-0.5 rounded font-mono font-bold">
-                Los Motokas MC
-              </span>
+              <div className="text-right">
+                <span className="text-xs font-extrabold text-white block uppercase leading-none font-['Plus_Jakarta_Sans']">
+                  LOSMOTOKAS MC
+                </span>
+                <span className="text-[10px] text-blue-200 font-semibold block leading-tight mt-0.5">
+                  Nossa História
+                </span>
+              </div>
             </div>
 
             {/* ITENS DE NAVEGAÇÃO PRINCIPAL COM ÍCONES */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1.5 text-sm">
-              <button
-                onClick={() => {
-                  onNavigate('feed');
-                  setMobileMenuOpen(false);
-                }}
-                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg font-semibold transition-colors text-left ${
-                  currentTab === 'feed' ? 'bg-white text-[#1877F2]' : 'text-white hover:bg-white/10'
-                }`}
-              >
-                <Home className="w-4 h-4 shrink-0" />
-                <span>Feed da Irmandade</span>
-              </button>
+            <div className="space-y-3">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-blue-200 tracking-wider block mb-1.5">
+                  Navegação Principal
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 text-sm">
+                  <button
+                    onClick={() => {
+                      onNavigate('feed');
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg font-semibold transition-colors text-left ${
+                      currentTab === 'feed' ? 'bg-white text-[#1877F2]' : 'text-white hover:bg-white/10'
+                    }`}
+                  >
+                    <Home className="w-4 h-4 shrink-0" />
+                    <span>Feed</span>
+                  </button>
 
-              <button
-                onClick={() => {
-                  onNavigate('albums');
-                  setMobileMenuOpen(false);
-                }}
-                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg font-semibold transition-colors text-left ${
-                  currentTab === 'albums' ? 'bg-white text-[#1877F2]' : 'text-white hover:bg-white/10'
-                }`}
-              >
-                <Camera className="w-4 h-4 shrink-0" />
-                <span>Álbuns & Galerias</span>
-              </button>
+                  <button
+                    onClick={() => {
+                      onNavigate('albums');
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg font-semibold transition-colors text-left ${
+                      currentTab === 'albums' ? 'bg-white text-[#1877F2]' : 'text-white hover:bg-white/10'
+                    }`}
+                  >
+                    <Camera className="w-4 h-4 shrink-0" />
+                    <span>Galeria</span>
+                  </button>
 
-              <button
-                onClick={() => {
-                  onNavigate('recordacoes');
-                  setMobileMenuOpen(false);
-                }}
-                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg font-semibold transition-colors text-left ${
-                  currentTab === 'recordacoes' ? 'bg-white text-[#1877F2]' : 'text-white hover:bg-white/10'
-                }`}
-              >
-                <Bookmark className="w-4 h-4 shrink-0" />
-                <span>Minhas Recordações</span>
-              </button>
+                  <button
+                    onClick={() => {
+                      onNavigate('recordacoes');
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg font-semibold transition-colors text-left ${
+                      currentTab === 'recordacoes' ? 'bg-white text-[#1877F2]' : 'text-white hover:bg-white/10'
+                    }`}
+                  >
+                    <Bookmark className="w-4 h-4 shrink-0" />
+                    <span>Recordações</span>
+                  </button>
+                </div>
+              </div>
 
-              <button
-                onClick={() => {
-                  onNavigate('membros');
-                  setMobileMenuOpen(false);
-                }}
-                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg font-semibold transition-colors text-left ${
-                  currentTab === 'membros' ? 'bg-white text-[#1877F2]' : 'text-white hover:bg-white/10'
-                }`}
-              >
-                <Users className="w-4 h-4 shrink-0" />
-                <span>Quadro de Membros</span>
-              </button>
+              {/* SEÇÃO DA ENGRENAGEM: GESTÃO DA IRMANDADE */}
+              <div className="bg-white/10 p-2.5 rounded-xl border border-white/15">
+                <div className="flex items-center gap-1.5 text-[11px] font-extrabold text-amber-300 uppercase tracking-wider mb-2">
+                  <Settings className="w-3.5 h-3.5" />
+                  <span>Gestão & Organização</span>
+                </div>
 
-              <button
-                onClick={() => {
-                  onNavigate('comunicados');
-                  setMobileMenuOpen(false);
-                }}
-                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg font-semibold transition-colors text-left ${
-                  currentTab === 'comunicados' ? 'bg-white text-[#1877F2]' : 'text-white hover:bg-white/10'
-                }`}
-              >
-                <Megaphone className="w-4 h-4 shrink-0" />
-                <span>Comunicados Oficiais</span>
-              </button>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 text-sm">
+                  <button
+                    onClick={() => {
+                      onNavigate('membros');
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg font-semibold transition-colors text-left ${
+                      currentTab === 'membros' ? 'bg-white text-[#1877F2] font-bold' : 'text-white hover:bg-white/15'
+                    }`}
+                  >
+                    <Users className="w-4 h-4 shrink-0" />
+                    <span>Membros ({allMembers.length})</span>
+                  </button>
 
-              {isDiretoria && (
-                <button
-                  onClick={() => {
-                    onNavigate('admin');
-                    setMobileMenuOpen(false);
-                  }}
-                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg font-bold transition-colors text-left ${
-                    currentTab === 'admin' ? 'bg-amber-400 text-neutral-900 shadow-sm' : 'bg-white/15 text-white hover:bg-white/25'
-                  }`}
-                >
-                  <ShieldCheck className="w-4 h-4 shrink-0 text-amber-300" />
-                  <span>Gabinete da Diretoria</span>
-                  <span className="text-[10px] bg-red-600 text-white px-1.5 py-0.2 rounded font-mono ml-auto">ADMIN</span>
-                </button>
-              )}
+                  <button
+                    onClick={() => {
+                      onNavigate('comunicados');
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg font-semibold transition-colors text-left ${
+                      currentTab === 'comunicados' ? 'bg-white text-[#1877F2] font-bold' : 'text-white hover:bg-white/15'
+                    }`}
+                  >
+                    <Megaphone className="w-4 h-4 shrink-0" />
+                    <span>Comunicados</span>
+                  </button>
+
+                  {isDiretoria ? (
+                    <button
+                      onClick={() => {
+                        onNavigate('admin');
+                        setMobileMenuOpen(false);
+                      }}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg font-bold transition-colors text-left ${
+                        currentTab === 'admin' ? 'bg-amber-400 text-neutral-900 shadow-sm' : 'bg-amber-400/20 text-amber-200 hover:bg-amber-400/30'
+                      }`}
+                    >
+                      <ShieldCheck className="w-4 h-4 shrink-0 text-amber-300" />
+                      <span>Diretoria</span>
+                      <span className="text-[9px] bg-red-600 text-white px-1.5 rounded font-mono ml-auto">ADMIN</span>
+                    </button>
+                  ) : null}
+                </div>
+              </div>
             </div>
 
             {/* AÇÕES DE PERFIL E SISTEMA */}
@@ -452,17 +673,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 <UserPlus className="w-3.5 h-3.5" />
                 <span>{copiedInvite ? 'Link Copiado!' : 'Link de Convite'}</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  onOpenConfig();
-                  setMobileMenuOpen(false);
-                }}
-                className="flex items-center justify-center gap-1.5 flex-1 min-w-[130px] py-2 px-3 bg-white/15 hover:bg-white/25 text-white rounded-lg font-semibold transition-colors cursor-pointer"
-              >
-                <Database className="w-3.5 h-3.5" />
-                <span>Banco Supabase</span>
               </button>
 
               <button

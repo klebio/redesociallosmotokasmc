@@ -84,7 +84,7 @@ export const AlbumsView: React.FC<AlbumsViewProps> = ({
               className="flex items-center gap-2 text-xs font-bold text-[#1877F2] hover:underline"
             >
               <ChevronLeft className="w-4 h-4" />
-              Voltar para todos os Álbuns da Irmandade
+              Voltar para a Galeria da Irmandade
             </button>
 
             <button
@@ -191,7 +191,7 @@ export const AlbumsView: React.FC<AlbumsViewProps> = ({
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
               <h2 className="text-lg font-bold text-neutral-900 font-['Plus_Jakarta_Sans']">
-                Álbuns da Irmandade
+                Galeria da Irmandade
               </h2>
               <p className="text-xs text-neutral-500">
                 Memórias de viagens, reuniões, aniversários e a história viva do Los Motokas MC.

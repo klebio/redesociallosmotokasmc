@@ -43,7 +43,7 @@ export const MemoriesView: React.FC<MemoriesViewProps> = ({
           </div>
           <div>
             <h2 className="text-xl font-bold text-neutral-900 font-['Plus_Jakarta_Sans']">
-              Minhas Recordações da Irmandade
+              Recordações da Irmandade
             </h2>
             <p className="text-xs text-neutral-500">
               Reviva os melhores passeios, momentos marcantes e publicações salvas da história do Los Motokas MC.
