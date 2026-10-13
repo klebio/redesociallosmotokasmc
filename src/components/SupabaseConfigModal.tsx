@@ -329,8 +329,8 @@ export const SupabaseConfigModal: React.FC<SupabaseConfigModalProps> = ({
                 </button>
               </div>
 
-              <div className="bg-neutral-900 rounded-lg p-3 text-neutral-300 font-mono text-[11px] h-64 overflow-y-auto leading-relaxed border border-neutral-800 select-all">
-                <pre>{SUPABASE_SQL_MIGRATION}</pre>
+              <div className="bg-neutral-900 rounded-lg p-3 text-neutral-300 font-mono text-[11px] h-64 overflow-y-auto overflow-x-auto max-w-full leading-relaxed border border-neutral-800 select-all">
+                <pre className="whitespace-pre-wrap break-all">{SUPABASE_SQL_MIGRATION}</pre>
               </div>
 
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-900">

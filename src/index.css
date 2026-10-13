@@ -12,10 +12,25 @@
     --fb-hover: #F2F2F2;
   }
 
+  html,
+  body {
+    max-width: 100vw;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
   body {
     font-family: 'Public Sans', system-ui, -apple-system, sans-serif;
     background-color: var(--fb-bg);
     color: var(--fb-text);
+    position: relative;
+    -webkit-tap-highlight-color: transparent;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -23,21 +38,34 @@
   }
 }
 
-/* Custom scrollbar matching classic clean style */
+/* Scrollbar suave, visível e fácil de usar para todas as áreas que possuem rolagem */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: #eef1f6;
+  border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #bcc0c4;
-  border-radius: 4px;
+  background: #94a3b8;
+  border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #8d949e;
+  background: #64748b;
+}
+
+/* Utilitário para áreas onde se deseja rolagem suave sem barra */
+.scrollbar-none {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none !important;
+  width: 0px !important;
+  height: 0px !important;
 }

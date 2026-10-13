@@ -73,7 +73,7 @@ export const AlbumsView: React.FC<AlbumsViewProps> = ({
   const isDiretoria = currentUser?.role === 'diretoria';
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
+    <div className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6 w-full max-w-full overflow-x-hidden">
       
       {/* VISTA 1: DETALHES DE UM ÁLBUM ESPECÍFICO */}
       {selectedAlbum ? (

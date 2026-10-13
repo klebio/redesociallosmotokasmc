@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Bell, Shield, User, LogOut, Settings, 
-  Database, Flame, ChevronDown, Check, Menu, X, UserPlus 
+  Database, Flame, ChevronDown, Check, Menu, X, UserPlus,
+  Home, Camera, Bookmark, Users, Megaphone, ShieldCheck 
 } from 'lucide-react';
 import { store } from '../services/store';
 import { isSupabaseConfigured } from '../lib/supabase';
@@ -42,7 +43,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   }, []);
 
   const unreadNotifs = notifications.filter((n) => !n.read).length;
-  const isDiretoria = currentUser?.role === 'diretoria';
+  const isDiretoria = store.isDiretoria(currentUser);
 
   const navLinks = [
     { id: 'feed', label: 'Feed da Irmandade' },
@@ -59,8 +60,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-[#1877F2] text-white shadow-sm border-b border-[#1466d1]">
-      <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between gap-4 md:gap-8">
+    <header className="sticky top-0 z-40 bg-[#1877F2] text-white shadow-sm border-b border-[#1466d1] w-full max-w-full">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 h-14 flex items-center justify-between gap-2 sm:gap-4 md:gap-8 w-full max-w-full">
         
         {/* ZONA 1: MARCA & ESCUDO */}
         <div className="flex items-center gap-3 shrink-0">
@@ -146,7 +147,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             {/* DROPDOWN DE NOTIFICAÇÕES */}
             {showNotifDropdown && (
-              <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-neutral-200 text-[#1C1E21] py-2 z-50 animate-in fade-in slide-in-from-top-1">
+              <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-24px)] bg-white rounded-lg shadow-xl border border-neutral-200 text-[#1C1E21] py-2 z-50 animate-in fade-in slide-in-from-top-1">
                 <div className="flex items-center justify-between px-3 py-1.5 border-b border-neutral-100">
                   <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">
                     Notificações
@@ -207,7 +208,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             {/* DROPDOWN DE CONTA & PERFIL */}
             {showUserDropdown && (
-              <div className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-xl border border-neutral-200 text-[#1C1E21] py-2 z-50 animate-in fade-in slide-in-from-top-1">
+              <div className="absolute right-0 mt-2 w-72 max-w-[calc(100vw-24px)] bg-white rounded-lg shadow-xl border border-neutral-200 text-[#1C1E21] py-2 z-50 animate-in fade-in slide-in-from-top-1">
                 <div className="px-3 py-2 border-b border-neutral-100 flex items-center gap-3">
                   <img
                     src={currentUser?.avatar_url || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100'}
@@ -302,53 +303,180 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
           </div>
 
-          {/* MENU MOBILE TOGGLE */}
+          {/* BOTÃO DOS TRÊS TRAÇOS (☰) VISÍVEL EM CELULAR, TABLETE E COMPUTADOR */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="lg:hidden p-2 rounded-md hover:bg-white/15 text-white focus:outline-none"
-            aria-label="Menu"
+            className="p-2 rounded-lg hover:bg-white/15 text-white focus:outline-none flex items-center gap-1.5 cursor-pointer transition-colors"
+            aria-label="Menu Principal da Irmandade (☰)"
+            title="Menu Principal da Irmandade (☰)"
           >
             {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            <span className="hidden sm:inline text-xs font-bold">Menu</span>
           </button>
         </div>
       </div>
 
-      {/* MENU MOBILE EXPANSÍVEL */}
+      {/* MENU DOS TRÊS TRAÇOS EXPANSÍVEL (PARA CELULAR, TABLETE E COMPUTADOR) */}
       {mobileMenuOpen && (
-        <div className="lg:hidden bg-[#1565C0] border-t border-blue-400/30 px-4 py-3 space-y-1">
-          {navLinks.map((link) => (
-            <button
-              key={link.id}
-              onClick={() => {
-                onNavigate(link.id);
-                setMobileMenuOpen(false);
-              }}
-              className={`w-full text-left px-3 py-2 rounded-md text-sm font-semibold ${
-                currentTab === link.id ? 'bg-white text-[#1877F2]' : 'text-white hover:bg-white/10'
-              }`}
-            >
-              {link.label}
-            </button>
-          ))}
-          <div className="pt-2 border-t border-blue-400/20 flex gap-2">
-            <button
-              onClick={() => {
-                onOpenProfile(currentUser?.id);
-                setMobileMenuOpen(false);
-              }}
-              className="flex-1 py-2 px-3 text-xs bg-white/10 hover:bg-white/20 rounded font-semibold text-center"
-            >
-              Meu Perfil
-            </button>
-            <button
-              onClick={() => {
-                onOpenConfig();
-                setMobileMenuOpen(false);
-              }}
-              className="flex-1 py-2 px-3 text-xs bg-white/10 hover:bg-white/20 rounded font-semibold text-center"
-            >
-              Supabase Config
-            </button>
+        <div className="bg-[#1565C0] border-t border-blue-400/30 px-4 py-3 shadow-2xl animate-in fade-in slide-in-from-top-2 duration-150">
+          <div className="max-w-7xl mx-auto space-y-3">
+            
+            {/* INFORMAÇÃO DO USUÁRIO LOGADO */}
+            <div className="flex items-center justify-between pb-2 border-b border-blue-400/30">
+              <div className="flex items-center gap-2.5">
+                <img
+                  src={currentUser?.avatar_url || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100'}
+                  alt={currentUser?.nickname || 'Membro'}
+                  className="w-9 h-9 rounded-full object-cover border border-white/50"
+                />
+                <div>
+                  <span className="font-bold text-sm text-white block leading-tight">
+                    {currentUser?.nickname || 'Irmão'} ({currentUser?.full_name})
+                  </span>
+                  <span className="text-[11px] text-blue-200 capitalize">
+                    Patente: <strong className="text-white">{currentUser?.role || 'Membro'}</strong>
+                  </span>
+                </div>
+              </div>
+
+              <span className="text-[10px] bg-white/20 text-white px-2 py-0.5 rounded font-mono font-bold">
+                Los Motokas MC
+              </span>
+            </div>
+
+            {/* ITENS DE NAVEGAÇÃO PRINCIPAL COM ÍCONES */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1.5 text-sm">
+              <button
+                onClick={() => {
+                  onNavigate('feed');
+                  setMobileMenuOpen(false);
+                }}
+                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg font-semibold transition-colors text-left ${
+                  currentTab === 'feed' ? 'bg-white text-[#1877F2]' : 'text-white hover:bg-white/10'
+                }`}
+              >
+                <Home className="w-4 h-4 shrink-0" />
+                <span>Feed da Irmandade</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  onNavigate('albums');
+                  setMobileMenuOpen(false);
+                }}
+                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg font-semibold transition-colors text-left ${
+                  currentTab === 'albums' ? 'bg-white text-[#1877F2]' : 'text-white hover:bg-white/10'
+                }`}
+              >
+                <Camera className="w-4 h-4 shrink-0" />
+                <span>Álbuns & Galerias</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  onNavigate('recordacoes');
+                  setMobileMenuOpen(false);
+                }}
+                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg font-semibold transition-colors text-left ${
+                  currentTab === 'recordacoes' ? 'bg-white text-[#1877F2]' : 'text-white hover:bg-white/10'
+                }`}
+              >
+                <Bookmark className="w-4 h-4 shrink-0" />
+                <span>Minhas Recordações</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  onNavigate('membros');
+                  setMobileMenuOpen(false);
+                }}
+                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg font-semibold transition-colors text-left ${
+                  currentTab === 'membros' ? 'bg-white text-[#1877F2]' : 'text-white hover:bg-white/10'
+                }`}
+              >
+                <Users className="w-4 h-4 shrink-0" />
+                <span>Quadro de Membros</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  onNavigate('comunicados');
+                  setMobileMenuOpen(false);
+                }}
+                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg font-semibold transition-colors text-left ${
+                  currentTab === 'comunicados' ? 'bg-white text-[#1877F2]' : 'text-white hover:bg-white/10'
+                }`}
+              >
+                <Megaphone className="w-4 h-4 shrink-0" />
+                <span>Comunicados Oficiais</span>
+              </button>
+
+              {isDiretoria && (
+                <button
+                  onClick={() => {
+                    onNavigate('admin');
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg font-bold transition-colors text-left ${
+                    currentTab === 'admin' ? 'bg-amber-400 text-neutral-900 shadow-sm' : 'bg-white/15 text-white hover:bg-white/25'
+                  }`}
+                >
+                  <ShieldCheck className="w-4 h-4 shrink-0 text-amber-300" />
+                  <span>Gabinete da Diretoria</span>
+                  <span className="text-[10px] bg-red-600 text-white px-1.5 py-0.2 rounded font-mono ml-auto">ADMIN</span>
+                </button>
+              )}
+            </div>
+
+            {/* AÇÕES DE PERFIL E SISTEMA */}
+            <div className="pt-2 border-t border-blue-400/30 flex flex-wrap gap-2 text-xs">
+              <button
+                onClick={() => {
+                  onOpenProfile(currentUser?.id);
+                  setMobileMenuOpen(false);
+                }}
+                className="flex items-center justify-center gap-1.5 flex-1 min-w-[120px] py-2 px-3 bg-white/15 hover:bg-white/25 text-white rounded-lg font-semibold transition-colors cursor-pointer"
+              >
+                <User className="w-3.5 h-3.5" />
+                <span>Meu Perfil</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  const url = `${window.location.origin}${window.location.pathname}?convite=losmotokas`;
+                  navigator.clipboard.writeText(url);
+                  setCopiedInvite(true);
+                  setTimeout(() => setCopiedInvite(false), 2500);
+                }}
+                className="flex items-center justify-center gap-1.5 flex-1 min-w-[140px] py-2 px-3 bg-white/15 hover:bg-white/25 text-white rounded-lg font-semibold transition-colors cursor-pointer"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>{copiedInvite ? 'Link Copiado!' : 'Link de Convite'}</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  onOpenConfig();
+                  setMobileMenuOpen(false);
+                }}
+                className="flex items-center justify-center gap-1.5 flex-1 min-w-[130px] py-2 px-3 bg-white/15 hover:bg-white/25 text-white rounded-lg font-semibold transition-colors cursor-pointer"
+              >
+                <Database className="w-3.5 h-3.5" />
+                <span>Banco Supabase</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onLogout();
+                }}
+                className="flex items-center justify-center gap-1.5 flex-1 min-w-[90px] py-2 px-3 bg-red-600/80 hover:bg-red-600 text-white rounded-lg font-semibold transition-colors cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Sair</span>
+              </button>
+            </div>
+
           </div>
         </div>
       )}

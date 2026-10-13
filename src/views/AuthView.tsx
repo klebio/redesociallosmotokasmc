@@ -141,8 +141,9 @@ export const AuthView: React.FC<AuthViewProps> = ({
 
         if (!error && data.user) {
           store.setCurrentUser(data.user.id);
+          const isAdmin = store.isAdminEmail(data.user.email) || store.isDiretoria();
           setIsLoading(false);
-          onLoginSuccess('feed', data.user.id);
+          onLoginSuccess(isAdmin ? 'admin' : 'feed', data.user.id);
           return;
         }
       }
@@ -158,9 +159,21 @@ export const AuthView: React.FC<AuthViewProps> = ({
           return;
         }
 
+        // Se o perfil ainda não possuía senha salva e digitou uma agora, salva como senha
+        if (!matched.password && password) {
+          store.updateProfile(matched.id, { password });
+        }
+
+        const isAdmin = store.isAdminEmail(matched.email) || matched.role === 'diretoria';
+        if (isAdmin && matched.role !== 'diretoria') {
+          store.updateMemberRole(matched.id, 'diretoria');
+        }
+
         store.setCurrentUser(matched.id);
         setIsLoading(false);
-        onLoginSuccess('feed', matched.id);
+
+        // Sempre que os administradores logarem com seus emails, entram na parte administrativa ('admin')!
+        onLoginSuccess(isAdmin ? 'admin' : 'feed', matched.id);
       } else {
         setErrorMessage('E-mail não encontrado. Se ainda não possui perfil, clique em "Criar perfil".');
         setIsLoading(false);
@@ -222,13 +235,15 @@ export const AuthView: React.FC<AuthViewProps> = ({
         }
       }
 
+      const isAdmin = store.isAdminEmail(regEmail.trim());
+
       // Registra perfil individual no banco de dados e no store
       const newMember = await store.registerMemberProfile({
         id: createdUserId,
         email: regEmail.trim(),
         full_name: regFullName.trim(),
         nickname: regNickname.trim(),
-        role: 'membro',
+        role: isAdmin ? 'diretoria' : 'membro',
         motorcycle_model: regMotorcycle.trim() || 'Harley-Davidson Custom',
         phone: regPhone.trim(),
         birth_date: regBirthDate.trim(),
@@ -240,8 +255,8 @@ export const AuthView: React.FC<AuthViewProps> = ({
       });
 
       setIsLoading(false);
-      // Redireciona diretamente para o perfil recém-criado para visualização!
-      onLoginSuccess('profile', newMember.id);
+      // Se for administrador oficial, entra diretamente na área administrativa ('admin'); senão no perfil recém-criado
+      onLoginSuccess(isAdmin ? 'admin' : 'profile', newMember.id);
     } catch (err: any) {
       setErrorMessage(err.message || 'Erro ao criar perfil.');
       setIsLoading(false);
@@ -343,17 +358,23 @@ export const AuthView: React.FC<AuthViewProps> = ({
 
   const handleFinishResetAndLogin = () => {
     setShowForgotModal(false);
-    setEmail(forgotEmail);
-    setPassword(newPassword);
-    setMode('login');
-    setErrorMessage('');
+    if (forgotVerifiedMember) {
+      store.setCurrentUser(forgotVerifiedMember.id);
+      const isAdmin = store.isAdminEmail(forgotVerifiedMember.email) || forgotVerifiedMember.role === 'diretoria';
+      onLoginSuccess(isAdmin ? 'admin' : 'feed', forgotVerifiedMember.id);
+    } else {
+      setEmail(forgotEmail);
+      setPassword(newPassword);
+      setMode('login');
+      setErrorMessage('');
+    }
   };
 
   return (
-    <div className="min-h-screen bg-[#F0F2F5] flex flex-col justify-between">
+    <div className="min-h-screen bg-[#F0F2F5] flex flex-col justify-between w-full max-w-full overflow-x-hidden">
       
       {/* CORPO CENTRAL */}
-      <div className="flex-1 flex items-center justify-center p-3 sm:p-6 py-6 sm:py-10">
+      <div className="flex-1 flex items-center justify-center p-3 sm:p-6 py-6 sm:py-10 w-full max-w-full overflow-x-hidden">
         
         {/* CASO 1: TELA FRONTAL COM APENAS OS DOIS BOTÕES */}
         {mode === 'welcome' ? (

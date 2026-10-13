@@ -44,7 +44,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
   });
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
+    <div className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6 w-full max-w-full overflow-x-hidden">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
         {/* COLUNA ESQUERDA (DESKTOP): IDENTIDADE DA IRMANDADE & ATALHOS */}
@@ -169,15 +169,15 @@ export const FeedView: React.FC<FeedViewProps> = ({
           <FeedComposer currentUser={currentUser} onPostCreated={handleRefresh} />
 
           {/* BARRA DE FILTRO DO FEED */}
-          <div className="bg-white rounded-xl shadow-xs border border-neutral-200 p-2 flex items-center justify-between">
-            <span className="text-xs font-bold text-neutral-600 px-2 flex items-center gap-1.5">
+          <div className="bg-white rounded-xl shadow-xs border border-neutral-200 p-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 max-w-full overflow-hidden">
+            <span className="text-xs font-bold text-neutral-600 px-2 flex items-center gap-1.5 shrink-0">
               <Filter className="w-3.5 h-3.5 text-[#1877F2]" />
               Mural da Irmandade
             </span>
-            <div className="flex items-center gap-1 p-0.5 bg-neutral-100 rounded-lg">
+            <div className="flex items-center gap-1 p-0.5 bg-neutral-100 rounded-lg overflow-x-auto scrollbar-none max-w-full w-full sm:w-auto">
               <button
                 onClick={() => setFilter('all')}
-                className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
+                className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors shrink-0 cursor-pointer ${
                   filter === 'all'
                     ? 'bg-white text-[#1877F2] shadow-xs'
                     : 'text-neutral-600 hover:text-neutral-900'
@@ -187,7 +187,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
               </button>
               <button
                 onClick={() => setFilter('media')}
-                className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
+                className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors shrink-0 cursor-pointer ${
                   filter === 'media'
                     ? 'bg-white text-[#1877F2] shadow-xs'
                     : 'text-neutral-600 hover:text-neutral-900'
@@ -197,7 +197,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
               </button>
               <button
                 onClick={() => setFilter('diretoria')}
-                className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
+                className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors shrink-0 cursor-pointer ${
                   filter === 'diretoria'
                     ? 'bg-white text-[#1877F2] shadow-xs'
                     : 'text-neutral-600 hover:text-neutral-900'

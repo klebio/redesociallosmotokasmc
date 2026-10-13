@@ -21,7 +21,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const targetId = memberId || currentUser?.id || '';
   const member = targetId ? store.getMemberById(targetId) || (currentUser?.id === targetId ? currentUser : null) : currentUser;
   const isSelf = !!currentUser && !!member && currentUser.id === member.id;
-  const isDiretoria = currentUser?.role === 'diretoria';
+  const isDiretoria = store.isDiretoria(currentUser);
 
   const [activeTab, setActiveTab] = useState<'posts' | 'photos' | 'about'>('posts');
   const [showEditModal, setShowEditModal] = useState(false);
@@ -120,7 +120,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-2.5 sm:px-4 py-4 sm:py-6">
+    <div className="max-w-5xl mx-auto px-2.5 sm:px-4 py-4 sm:py-6 w-full max-w-full overflow-x-hidden">
       
       {/* CAPA & CABEÇALHO DO PERFIL ESTILO FACEBOOK CLÁSSICO */}
       <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden shadow-xs mb-5 sm:mb-6">
@@ -179,13 +179,19 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               {/* PATENTE / CARGO */}
               <div className="flex items-center justify-center md:justify-start gap-2 flex-wrap text-xs">
                 <span className={`px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider text-[11px] ${
-                  member.role === 'diretoria'
+                  member.role === 'diretoria' || store.isAdminEmail(member.email)
                     ? 'bg-blue-100 text-[#1877F2]'
                     : member.role === 'membro'
                     ? 'bg-neutral-100 text-neutral-800'
                     : 'bg-amber-100 text-amber-800'
                 }`}>
-                  {member.role === 'diretoria' ? 'Diretoria' : member.role === 'membro' ? 'Membro Oficial' : 'Aspirante'}
+                  {store.isAdminEmail(member.email)
+                    ? 'Administrador Geral · Diretoria'
+                    : member.role === 'diretoria'
+                    ? 'Diretoria'
+                    : member.role === 'membro'
+                    ? 'Membro Oficial'
+                    : 'Aspirante'}
                 </span>
                 <span className="text-neutral-400">·</span>
                 <span className="text-neutral-600 font-semibold">{member.motorcycle_model}</span>
@@ -215,7 +221,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         )}
 
         {/* NAVEGAÇÃO DE ABAS DO PERFIL COM SCROLL HORIZONTAL SUAVE NO CELULAR */}
-        <div className="px-4 sm:px-6 border-t border-neutral-200 flex gap-4 sm:gap-6 text-xs font-bold overflow-x-auto scrollbar-none whitespace-nowrap">
+        <div className="px-4 sm:px-6 border-t border-neutral-200 flex gap-4 sm:gap-6 text-xs font-bold overflow-x-auto scrollbar-none whitespace-nowrap max-w-full">
           <button
             onClick={() => setActiveTab('posts')}
             className={`py-3 sm:py-3.5 border-b-2 transition-colors shrink-0 ${

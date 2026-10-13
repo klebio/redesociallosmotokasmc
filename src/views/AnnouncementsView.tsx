@@ -46,7 +46,7 @@ export const AnnouncementsView: React.FC<AnnouncementsViewProps> = ({
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6">
+    <div className="max-w-4xl mx-auto px-3 sm:px-4 py-4 sm:py-6 w-full max-w-full overflow-x-hidden">
       
       {/* CABEÇALHO */}
       <div className="bg-white rounded-xl border border-neutral-200 p-6 mb-6 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">

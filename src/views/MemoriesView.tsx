@@ -33,12 +33,12 @@ export const MemoriesView: React.FC<MemoriesViewProps> = ({
   });
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6">
+    <div className="max-w-4xl mx-auto px-3 sm:px-4 py-4 sm:py-6 w-full max-w-full overflow-x-hidden">
       
       {/* CABEÇALHO */}
-      <div className="bg-white rounded-xl border border-neutral-200 p-6 mb-6 shadow-xs">
+      <div className="bg-white rounded-xl border border-neutral-200 p-4 sm:p-6 mb-6 shadow-xs max-w-full overflow-hidden">
         <div className="flex items-center gap-3 mb-2">
-          <div className="p-2.5 bg-blue-50 text-[#1877F2] rounded-xl">
+          <div className="p-2.5 bg-blue-50 text-[#1877F2] rounded-xl shrink-0">
             <History className="w-6 h-6" />
           </div>
           <div>
@@ -52,10 +52,10 @@ export const MemoriesView: React.FC<MemoriesViewProps> = ({
         </div>
 
         {/* ABAS */}
-        <div className="flex border-b border-neutral-200 mt-4 text-xs font-bold gap-6">
+        <div className="flex border-b border-neutral-200 mt-4 text-xs font-bold gap-3 sm:gap-6 overflow-x-auto scrollbar-none whitespace-nowrap max-w-full pb-0.5">
           <button
             onClick={() => setActiveTab('saved')}
-            className={`pb-3 border-b-2 flex items-center gap-2 transition-colors ${
+            className={`pb-3 border-b-2 flex items-center gap-2 transition-colors shrink-0 cursor-pointer ${
               activeTab === 'saved'
                 ? 'border-[#1877F2] text-[#1877F2]'
                 : 'border-transparent text-neutral-500 hover:text-neutral-900'
@@ -67,7 +67,7 @@ export const MemoriesView: React.FC<MemoriesViewProps> = ({
 
           <button
             onClick={() => setActiveTab('history')}
-            className={`pb-3 border-b-2 flex items-center gap-2 transition-colors ${
+            className={`pb-3 border-b-2 flex items-center gap-2 transition-colors shrink-0 cursor-pointer ${
               activeTab === 'history'
                 ? 'border-[#1877F2] text-[#1877F2]'
                 : 'border-transparent text-neutral-500 hover:text-neutral-900'

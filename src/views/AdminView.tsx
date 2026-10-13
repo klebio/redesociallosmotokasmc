@@ -32,7 +32,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
     setTimeout(() => setCopiedInvite(false), 2500);
   };
 
-  const isDiretoria = currentUser?.role === 'diretoria';
+  const isDiretoria = store.isDiretoria(currentUser);
 
   const handleApproveRequest = (id: string) => {
     store.approveRequest(id);
@@ -77,7 +77,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6">
+    <div className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-6 w-full max-w-full">
       
       {/* CABEÇALHO DO PAINEL */}
       <div className="bg-white rounded-xl border border-neutral-200 p-6 mb-6 shadow-xs">
@@ -152,11 +152,70 @@ export const AdminView: React.FC<AdminViewProps> = ({
           </div>
         </div>
 
-        {/* ABAS */}
-        <div className="flex border-b border-neutral-200 mt-6 text-xs font-bold gap-6">
+        {/* CARD DOS ADMINISTRADORES OFICIAIS SALVOS */}
+        <div className="mt-4 pt-4 border-t border-neutral-100">
+          <div className="flex items-center justify-between mb-2.5">
+            <span className="text-xs font-bold text-neutral-800 flex items-center gap-1.5 uppercase tracking-wider">
+              <ShieldCheck className="w-4 h-4 text-[#1877F2]" />
+              Administradores Oficiais do Sistema (Diretoria Permanente)
+            </span>
+            <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+              2 Administradores Salvos
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {['jequisilveira@gmail.com', 'klebiohonoratorocha@gmail.com'].map((adminEmail) => {
+              const adminProfile = members.find((m) => m.email.toLowerCase().trim() === adminEmail.toLowerCase().trim());
+              return (
+                <div
+                  key={adminEmail}
+                  className="p-3 bg-neutral-50 hover:bg-blue-50/50 rounded-xl border border-neutral-200/90 flex items-center justify-between gap-3 transition-colors"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-full bg-white p-0.5 border border-[#1877F2]/30 overflow-hidden shrink-0 shadow-2xs">
+                      <img
+                        src={adminProfile?.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150'}
+                        alt={adminProfile?.nickname || 'Administrador'}
+                        className="w-full h-full object-cover rounded-full"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-xs text-neutral-900 truncate">
+                          {adminProfile?.nickname || (adminEmail.startsWith('jequi') ? 'Jequi Silveira' : 'Klébio Honorato')}
+                        </span>
+                        <span className="text-[10px] font-bold bg-[#1877F2] text-white px-1.5 py-0.5 rounded leading-none">
+                          Diretoria
+                        </span>
+                      </div>
+                      <span className="text-[11px] font-mono text-neutral-500 block truncate" title={adminEmail}>
+                        {adminEmail}
+                      </span>
+                    </div>
+                  </div>
+
+                  {adminProfile && (
+                    <button
+                      type="button"
+                      onClick={() => onNavigateToProfile(adminProfile.id)}
+                      className="shrink-0 px-2.5 py-1 text-[11px] font-bold text-[#1877F2] bg-white hover:bg-blue-100/60 rounded-md border border-blue-200 transition-colors shadow-2xs"
+                    >
+                      Ver Perfil
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ABAS COM ROLAGEM HORIZONTAL SUAVE SEM BARRA */}
+        <div className="flex border-b border-neutral-200 mt-6 text-xs font-bold gap-3 sm:gap-6 overflow-x-auto scrollbar-none whitespace-nowrap max-w-full pb-0.5">
           <button
             onClick={() => setActiveTab('requests')}
-            className={`pb-3 border-b-2 flex items-center gap-2 transition-colors ${
+            className={`pb-3 border-b-2 flex items-center gap-2 transition-colors shrink-0 cursor-pointer ${
               activeTab === 'requests'
                 ? 'border-[#1877F2] text-[#1877F2]'
                 : 'border-transparent text-neutral-500 hover:text-neutral-900'
@@ -168,7 +227,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
           <button
             onClick={() => setActiveTab('members')}
-            className={`pb-3 border-b-2 flex items-center gap-2 transition-colors ${
+            className={`pb-3 border-b-2 flex items-center gap-2 transition-colors shrink-0 cursor-pointer ${
               activeTab === 'members'
                 ? 'border-[#1877F2] text-[#1877F2]'
                 : 'border-transparent text-neutral-500 hover:text-neutral-900'
@@ -180,7 +239,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
           <button
             onClick={() => setActiveTab('audit')}
-            className={`pb-3 border-b-2 flex items-center gap-2 transition-colors ${
+            className={`pb-3 border-b-2 flex items-center gap-2 transition-colors shrink-0 cursor-pointer ${
               activeTab === 'audit'
                 ? 'border-[#1877F2] text-[#1877F2]'
                 : 'border-transparent text-neutral-500 hover:text-neutral-900'
@@ -257,117 +316,222 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
       {/* ABA 2: GERENCIAR PATENTES E ACESSOS */}
       {activeTab === 'members' && (
-        <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden shadow-xs">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-neutral-50 border-b border-neutral-200 font-bold text-neutral-600 uppercase tracking-wider text-[10px]">
-                <tr>
-                  <th className="px-4 py-3">Membro</th>
-                  <th className="px-4 py-3">Máquina</th>
-                  <th className="px-4 py-3">Patente Atual</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Ação</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-100">
-                {members.map((m: Profile) => (
-                  <tr key={m.id} className="hover:bg-neutral-50/50">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2.5">
-                        <img
-                          src={m.avatar_url || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100'}
-                          alt={m.nickname}
-                          className="w-8 h-8 rounded-full object-cover shrink-0"
-                        />
-                        <div>
-                          <span className="font-bold text-neutral-900 block">{m.nickname}</span>
-                          <span className="text-[11px] text-neutral-500 block">{m.full_name}</span>
-                        </div>
-                      </div>
-                    </td>
+        <div className="space-y-4">
+          
+          {/* VISUALIZAÇÃO EM CARDS PARA CELULAR E TELAS COMPACTAS (SEM ESCONDER INFORMAÇÕES) */}
+          <div className="md:hidden space-y-3">
+            {members.map((m: Profile) => (
+              <div 
+                key={m.id} 
+                className="bg-white rounded-xl border border-neutral-200 p-4 shadow-xs space-y-3"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <img
+                      src={m.avatar_url || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100'}
+                      alt={m.nickname}
+                      className="w-10 h-10 rounded-full object-cover shrink-0 border border-neutral-200"
+                    />
+                    <div className="min-w-0">
+                      <span className="font-bold text-sm text-neutral-900 block truncate">{m.nickname}</span>
+                      <span className="text-[11px] text-neutral-500 block truncate">{m.full_name}</span>
+                    </div>
+                  </div>
 
-                    <td className="px-4 py-3 text-neutral-600 font-medium">
-                      {m.motorcycle_model || 'Não especificada'}
-                    </td>
+                  <button
+                    onClick={() => onNavigateToProfile(m.id)}
+                    className="shrink-0 px-2.5 py-1 text-xs text-[#1877F2] font-bold bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors"
+                  >
+                    Ver Perfil
+                  </button>
+                </div>
 
-                    <td className="px-4 py-3">
-                      <select
-                        value={m.role}
-                        onChange={(e) => handleRoleChange(m.id, e.target.value as MemberRole)}
-                        className="px-2 py-1 text-xs border border-neutral-200 rounded-md bg-white font-semibold capitalize focus:outline-none focus:ring-1 focus:ring-[#1877F2]"
-                      >
-                        <option value="diretoria">Diretoria</option>
-                        <option value="membro">Membro Oficial</option>
-                        <option value="aspirante">Aspirante</option>
-                      </select>
-                    </td>
+                {m.motorcycle_model && (
+                  <div className="text-xs text-neutral-600 bg-neutral-50 px-3 py-1.5 rounded-lg border border-neutral-100 flex items-center justify-between">
+                    <span className="text-neutral-400 font-semibold">Máquina:</span>
+                    <span className="font-bold text-neutral-800">{m.motorcycle_model}</span>
+                  </div>
+                )}
 
-                    <td className="px-4 py-3">
-                      <select
-                        value={m.status}
-                        onChange={(e) => handleStatusChange(m.id, e.target.value as MemberStatus)}
-                        className={`px-2 py-1 text-xs border rounded-md font-semibold capitalize focus:outline-none ${
-                          m.status === 'active'
-                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                            : 'bg-red-50 text-red-800 border-red-200'
-                        }`}
-                      >
-                        <option value="active">Ativo na Estrada</option>
-                        <option value="suspended">Suspenso</option>
-                      </select>
-                    </td>
+                <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-neutral-100">
+                  <div>
+                    <label className="block text-[10px] uppercase font-bold text-neutral-500 mb-1">
+                      Patente / Cargo
+                    </label>
+                    <select
+                      value={m.role}
+                      onChange={(e) => handleRoleChange(m.id, e.target.value as MemberRole)}
+                      className="w-full px-2 py-1.5 text-xs border border-neutral-200 rounded-lg bg-white font-semibold capitalize focus:outline-none focus:ring-1 focus:ring-[#1877F2]"
+                    >
+                      <option value="diretoria">Diretoria</option>
+                      <option value="membro">Membro Oficial</option>
+                      <option value="aspirante">Aspirante</option>
+                    </select>
+                  </div>
 
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={() => onNavigateToProfile(m.id)}
-                        className="text-xs text-[#1877F2] hover:underline font-bold"
-                      >
-                        Ver Perfil
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                  <div>
+                    <label className="block text-[10px] uppercase font-bold text-neutral-500 mb-1">
+                      Status na Estrada
+                    </label>
+                    <select
+                      value={m.status}
+                      onChange={(e) => handleStatusChange(m.id, e.target.value as MemberStatus)}
+                      className={`w-full px-2 py-1.5 text-xs border rounded-lg font-semibold capitalize focus:outline-none ${
+                        m.status === 'active'
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                          : 'bg-red-50 text-red-800 border-red-200'
+                      }`}
+                    >
+                      <option value="active">Ativo na Estrada</option>
+                      <option value="suspended">Suspenso</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
+
+          {/* VISUALIZAÇÃO EM TABELA PARA COMPUTADOR E TABLET COM SCROLLBAR VISÍVEL */}
+          <div className="hidden md:block bg-white rounded-xl border border-neutral-200 overflow-hidden shadow-xs">
+            <div className="overflow-x-auto pb-1">
+              <table className="w-full text-left text-xs min-w-[650px]">
+                <thead className="bg-neutral-50 border-b border-neutral-200 font-bold text-neutral-600 uppercase tracking-wider text-[10px]">
+                  <tr>
+                    <th className="px-4 py-3">Membro</th>
+                    <th className="px-4 py-3">Máquina</th>
+                    <th className="px-4 py-3">Patente Atual</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3 text-right">Ação</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-100">
+                  {members.map((m: Profile) => (
+                    <tr key={m.id} className="hover:bg-neutral-50/50">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2.5">
+                          <img
+                            src={m.avatar_url || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100'}
+                            alt={m.nickname}
+                            className="w-8 h-8 rounded-full object-cover shrink-0 border border-neutral-200"
+                          />
+                          <div>
+                            <span className="font-bold text-neutral-900 block">{m.nickname}</span>
+                            <span className="text-[11px] text-neutral-500 block">{m.full_name}</span>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="px-4 py-3 text-neutral-600 font-medium">
+                        {m.motorcycle_model || 'Não especificada'}
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <select
+                          value={m.role}
+                          onChange={(e) => handleRoleChange(m.id, e.target.value as MemberRole)}
+                          className="px-2 py-1 text-xs border border-neutral-200 rounded-md bg-white font-semibold capitalize focus:outline-none focus:ring-1 focus:ring-[#1877F2]"
+                        >
+                          <option value="diretoria">Diretoria</option>
+                          <option value="membro">Membro Oficial</option>
+                          <option value="aspirante">Aspirante</option>
+                        </select>
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <select
+                          value={m.status}
+                          onChange={(e) => handleStatusChange(m.id, e.target.value as MemberStatus)}
+                          className={`px-2 py-1 text-xs border rounded-md font-semibold capitalize focus:outline-none ${
+                            m.status === 'active'
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                              : 'bg-red-50 text-red-800 border-red-200'
+                          }`}
+                        >
+                          <option value="active">Ativo na Estrada</option>
+                          <option value="suspended">Suspenso</option>
+                        </select>
+                      </td>
+
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() => onNavigateToProfile(m.id)}
+                          className="text-xs text-[#1877F2] hover:underline font-bold"
+                        >
+                          Ver Perfil
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
         </div>
       )}
 
       {/* ABA 3: AUDITORIA ADMINISTRATIVA */}
       {activeTab === 'audit' && (
-        <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden shadow-xs">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs font-mono">
-              <thead className="bg-neutral-50 border-b border-neutral-200 font-sans font-bold text-neutral-600 uppercase tracking-wider text-[10px]">
-                <tr>
-                  <th className="px-4 py-3 font-sans">Data / Hora</th>
-                  <th className="px-4 py-3 font-sans">Ação</th>
-                  <th className="px-4 py-3 font-sans">Oficial Responsável</th>
-                  <th className="px-4 py-3 font-sans">Detalhes da Operação</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-100">
-                {auditLogs.map((log: AuditLog) => (
-                  <tr key={log.id} className="hover:bg-neutral-50/50">
-                    <td className="px-4 py-2.5 text-neutral-500 tabular-nums whitespace-nowrap">
-                      {new Date(log.created_at).toLocaleString('pt-BR')}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-neutral-100 text-neutral-800">
-                        {log.action}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 font-sans font-semibold text-neutral-900">
-                      {log.actor?.nickname || 'Sistema'}
-                    </td>
-                    <td className="px-4 py-2.5 font-sans text-neutral-700">
-                      {log.details}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <div className="space-y-3">
+          
+          {/* CARDS DE AUDITORIA PARA CELULAR */}
+          <div className="md:hidden space-y-2.5">
+            {auditLogs.map((log: AuditLog) => (
+              <div key={log.id} className="bg-white rounded-xl border border-neutral-200 p-3.5 shadow-xs space-y-1.5 text-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-neutral-100 text-neutral-800">
+                    {log.action}
+                  </span>
+                  <span className="text-[10px] text-neutral-400 font-mono">
+                    {new Date(log.created_at).toLocaleString('pt-BR')}
+                  </span>
+                </div>
+                <div className="font-semibold text-neutral-900">
+                  Responsável: <span className="text-[#1877F2]">{log.actor?.nickname || 'Sistema'}</span>
+                </div>
+                <p className="text-neutral-600 bg-neutral-50 p-2 rounded-lg border border-neutral-100 text-[11px]">
+                  {log.details}
+                </p>
+              </div>
+            ))}
           </div>
+
+          {/* TABELA DE AUDITORIA PARA COMPUTADOR E TABLET */}
+          <div className="hidden md:block bg-white rounded-xl border border-neutral-200 overflow-hidden shadow-xs">
+            <div className="overflow-x-auto pb-1">
+              <table className="w-full text-left text-xs font-mono min-w-[650px]">
+                <thead className="bg-neutral-50 border-b border-neutral-200 font-sans font-bold text-neutral-600 uppercase tracking-wider text-[10px]">
+                  <tr>
+                    <th className="px-4 py-3 font-sans">Data / Hora</th>
+                    <th className="px-4 py-3 font-sans">Ação</th>
+                    <th className="px-4 py-3 font-sans">Oficial Responsável</th>
+                    <th className="px-4 py-3 font-sans">Detalhes da Operação</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-100">
+                  {auditLogs.map((log: AuditLog) => (
+                    <tr key={log.id} className="hover:bg-neutral-50/50">
+                      <td className="px-4 py-2.5 text-neutral-500 tabular-nums whitespace-nowrap">
+                        {new Date(log.created_at).toLocaleString('pt-BR')}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-neutral-100 text-neutral-800">
+                          {log.action}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 font-sans font-semibold text-neutral-900">
+                        {log.actor?.nickname || 'Sistema'}
+                      </td>
+                      <td className="px-4 py-2.5 font-sans text-neutral-700">
+                        {log.details}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
         </div>
       )}
 

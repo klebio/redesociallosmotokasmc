@@ -4,7 +4,7 @@ import {
 } from '../types/database';
 import { 
   INITIAL_MEMBERS, INITIAL_POSTS, INITIAL_ALBUMS, 
-  INITIAL_ANNOUNCEMENTS, INITIAL_REQUESTS 
+  INITIAL_ANNOUNCEMENTS, INITIAL_REQUESTS, OFFICIAL_ADMIN_EMAILS 
 } from '../data/mockSeed';
 import { getSupabase, isSupabaseConfigured } from '../lib/supabase';
 
@@ -46,7 +46,47 @@ class DataStore {
 
   constructor() {
     this.cleanLegacyFakeData();
+    this.ensureOfficialAdminsExist();
     this.hydrateFromSupabase();
+  }
+
+  // Verifica se o email informado pertence aos administradores oficiais permanentes
+  public isAdminEmail(email?: string): boolean {
+    if (!email) return false;
+    const clean = email.toLowerCase().trim();
+    return OFFICIAL_ADMIN_EMAILS.some((adm) => adm.toLowerCase().trim() === clean);
+  }
+
+  // Garante a existência e privilégio permanente dos dois administradores oficiais
+  private ensureOfficialAdminsExist() {
+    let changed = false;
+
+    INITIAL_MEMBERS.forEach((initialAdmin) => {
+      const existingIndex = this.members.findIndex(
+        (m) => m.email.toLowerCase().trim() === initialAdmin.email.toLowerCase().trim()
+      );
+
+      if (existingIndex >= 0) {
+        // Se o perfil do administrador já existe, garante o cargo de diretoria e status ativo
+        const existing = this.members[existingIndex];
+        if (existing.role !== 'diretoria' || existing.status !== 'active') {
+          this.members[existingIndex] = {
+            ...existing,
+            role: 'diretoria',
+            status: 'active',
+          };
+          changed = true;
+        }
+      } else {
+        // Se ainda não estava no armazenamento local, adiciona o perfil do administrador
+        this.members.push({ ...initialAdmin });
+        changed = true;
+      }
+    });
+
+    if (changed) {
+      save('members', this.members);
+    }
   }
 
   // Remove qualquer perfil e post falso salvo em sessões anteriores (mantendo apenas perfis reais)
@@ -54,9 +94,12 @@ class DataStore {
     const isFakeMember = (m: Profile) => {
       if (!m || !m.id) return true;
       const id = (m.id || '').toLowerCase();
-      const email = (m.email || '').toLowerCase();
+      const email = (m.email || '').toLowerCase().trim();
       const name = (m.full_name || '').toLowerCase();
       const nick = (m.nickname || '').toLowerCase();
+
+      // NUNCA remover perfis de administradores oficiais
+      if (this.isAdminEmail(email)) return false;
 
       return (
         id.startsWith('user-trovao') ||
@@ -176,10 +219,11 @@ class DataStore {
     this.notify();
   }
 
-  public isDiretoria(): boolean {
-    const user = this.getCurrentUser();
-    // Se for o primeiro membro cadastrado ou tiver role diretoria
-    return user?.role === 'diretoria' || (this.members.length > 0 && this.members[0]?.id === user?.id);
+  public isDiretoria(user?: Profile | null): boolean {
+    const target = user || this.getCurrentUser();
+    if (!target) return false;
+    if (this.isAdminEmail(target.email)) return true;
+    return target.role === 'diretoria' || (this.members.length > 0 && this.members[0]?.id === target.id);
   }
 
   // MEMBROS
@@ -192,7 +236,17 @@ class DataStore {
   }
 
   public updateProfile(id: string, updates: Partial<Profile>) {
-    this.members = this.members.map((m) => (m.id === id ? { ...m, ...updates } : m));
+    this.members = this.members.map((m) => {
+      if (m.id === id) {
+        const updated = { ...m, ...updates };
+        if (this.isAdminEmail(updated.email)) {
+          updated.role = 'diretoria';
+          updated.status = 'active';
+        }
+        return updated;
+      }
+      return m;
+    });
     save('members', this.members);
 
     // Sincroniza com Supabase se ativo
@@ -235,7 +289,8 @@ class DataStore {
   }): Promise<Profile> {
     const newId = data.id || `user-${Date.now()}`;
     const isFirstMember = this.members.length === 0;
-    const assignedRole: MemberRole = data.role || (isFirstMember ? 'diretoria' : 'membro');
+    const isAdmin = this.isAdminEmail(data.email);
+    const assignedRole: MemberRole = isAdmin ? 'diretoria' : (data.role || (isFirstMember ? 'diretoria' : 'membro'));
 
     const newProfile: Profile = {
       id: newId,
@@ -478,6 +533,11 @@ class DataStore {
   }
 
   public updateMemberRole(userId: string, role: MemberRole) {
+    const member = this.getMemberById(userId);
+    if (member && this.isAdminEmail(member.email) && role !== 'diretoria') {
+      console.warn('Os administradores oficiais mantêm sempre o cargo de diretoria.');
+      return;
+    }
     this.members = this.members.map((m) => (m.id === userId ? { ...m, role } : m));
     save('members', this.members);
     this.addAuditLog('ALTERACAO_CARGO', 'profile', userId, `Cargo alterado para ${role.toUpperCase()}`);

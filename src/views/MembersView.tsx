@@ -44,10 +44,10 @@ export const MembersView: React.FC<MembersViewProps> = ({
   });
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
+    <div className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6 w-full max-w-full overflow-x-hidden">
       
       {/* CABEÇALHO */}
-      <div className="bg-white rounded-xl border border-neutral-200 p-6 mb-6 shadow-xs">
+      <div className="bg-white rounded-xl border border-neutral-200 p-4 sm:p-6 mb-6 shadow-xs max-w-full overflow-hidden">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 text-xs font-bold text-[#1877F2] uppercase tracking-wider mb-1">
@@ -62,10 +62,10 @@ export const MembersView: React.FC<MembersViewProps> = ({
             </p>
           </div>
 
-          <div className="flex items-center gap-2 bg-neutral-100 p-1 rounded-lg text-xs font-semibold">
+          <div className="flex items-center gap-1.5 sm:gap-2 bg-neutral-100 p-1 rounded-lg text-xs font-semibold overflow-x-auto scrollbar-none max-w-full w-full md:w-auto">
             <button
               onClick={() => setRoleFilter('all')}
-              className={`px-3 py-1.5 rounded-md transition-colors ${
+              className={`px-3 py-1.5 rounded-md transition-colors shrink-0 whitespace-nowrap cursor-pointer ${
                 roleFilter === 'all' ? 'bg-white text-[#1877F2] shadow-xs' : 'text-neutral-600'
               }`}
             >
@@ -73,7 +73,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
             </button>
             <button
               onClick={() => setRoleFilter('diretoria')}
-              className={`px-3 py-1.5 rounded-md transition-colors ${
+              className={`px-3 py-1.5 rounded-md transition-colors shrink-0 whitespace-nowrap cursor-pointer ${
                 roleFilter === 'diretoria' ? 'bg-white text-[#1877F2] shadow-xs' : 'text-neutral-600'
               }`}
             >
@@ -81,7 +81,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
             </button>
             <button
               onClick={() => setRoleFilter('membro')}
-              className={`px-3 py-1.5 rounded-md transition-colors ${
+              className={`px-3 py-1.5 rounded-md transition-colors shrink-0 whitespace-nowrap cursor-pointer ${
                 roleFilter === 'membro' ? 'bg-white text-[#1877F2] shadow-xs' : 'text-neutral-600'
               }`}
             >
@@ -89,7 +89,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
             </button>
             <button
               onClick={() => setRoleFilter('aspirante')}
-              className={`px-3 py-1.5 rounded-md transition-colors ${
+              className={`px-3 py-1.5 rounded-md transition-colors shrink-0 whitespace-nowrap cursor-pointer ${
                 roleFilter === 'aspirante' ? 'bg-white text-[#1877F2] shadow-xs' : 'text-neutral-600'
               }`}
             >
@@ -165,13 +165,19 @@ export const MembersView: React.FC<MembersViewProps> = ({
                 />
                 <div className="absolute top-2 right-2">
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded shadow-xs ${
-                    member.role === 'diretoria' 
+                    member.role === 'diretoria' || store.isAdminEmail(member.email)
                       ? 'bg-[#1877F2] text-white' 
                       : member.role === 'membro' 
                       ? 'bg-neutral-800 text-white' 
                       : 'bg-amber-600 text-white'
                   }`}>
-                    {member.role === 'diretoria' ? 'Diretoria' : member.role === 'membro' ? 'Membro Oficial' : 'Aspirante'}
+                    {store.isAdminEmail(member.email)
+                      ? 'Administrador'
+                      : member.role === 'diretoria'
+                      ? 'Diretoria'
+                      : member.role === 'membro'
+                      ? 'Membro Oficial'
+                      : 'Aspirante'}
                   </span>
                 </div>
               </div>

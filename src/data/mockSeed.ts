@@ -1,7 +1,44 @@
 import { Profile, Post, Album, Announcement, MemberRequest } from '../types/database';
 
-// Nenhum perfil fake — apenas perfis reais cadastrados no Supabase
-export const INITIAL_MEMBERS: Profile[] = [];
+// Emails oficiais designados com permissão e patente administrativa permanente
+export const OFFICIAL_ADMIN_EMAILS: string[] = [
+  'jequisilveira@gmail.com',
+  'klebiohonoratorocha@gmail.com',
+];
+
+// Perfis reais dos administradores e oficiais da diretoria
+export const INITIAL_MEMBERS: Profile[] = [
+  {
+    id: 'admin-jequisilveira',
+    email: 'jequisilveira@gmail.com',
+    full_name: 'Jequi Silveira',
+    nickname: 'Jequi',
+    role: 'diretoria',
+    status: 'active',
+    motorcycle_model: 'Harley-Davidson / Custom',
+    phone: '',
+    bio: 'Administrador e Oficial da Diretoria — Los Motokas MC Mossoró/RN.',
+    avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=300&auto=format&fit=crop&q=80',
+    cover_url: '/src/assets/images/motokas_road_trip_1791830557313.jpg',
+    joined_at: '2024-01-01',
+    created_at: '2024-01-01T00:00:00.000Z',
+  },
+  {
+    id: 'admin-klebiohonorato',
+    email: 'klebiohonoratorocha@gmail.com',
+    full_name: 'Klébio Honorato Rocha',
+    nickname: 'Klébio',
+    role: 'diretoria',
+    status: 'active',
+    motorcycle_model: 'Harley-Davidson / Custom',
+    phone: '',
+    bio: 'Administrador e Oficial da Diretoria — Los Motokas MC Mossoró/RN.',
+    avatar_url: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=300&auto=format&fit=crop&q=80',
+    cover_url: '/src/assets/images/motokas_clubhouse_gathering_1791830585214.jpg',
+    joined_at: '2024-01-01',
+    created_at: '2024-01-01T00:00:00.000Z',
+  },
+];
 
 // Nenhuma postagem fake
 export const INITIAL_POSTS: Post[] = [];

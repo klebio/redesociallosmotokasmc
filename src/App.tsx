@@ -55,7 +55,7 @@ export default function App() {
     setIsAuthenticated(false);
   };
 
-  const isDiretoria = currentUser?.role === 'diretoria';
+  const isDiretoria = store.isDiretoria(currentUser);
 
   if (!isAuthenticated) {
     return (
@@ -83,7 +83,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F0F2F5] text-[#1C1E21] flex flex-col selection:bg-[#1877F2] selection:text-white pb-16 lg:pb-0">
+    <div className="min-h-screen bg-[#F0F2F5] text-[#1C1E21] flex flex-col selection:bg-[#1877F2] selection:text-white pb-16 lg:pb-0 w-full">
       
       {/* CABEÇALHO AZUL OFICIAL */}
       <Navbar
@@ -95,7 +95,7 @@ export default function App() {
       />
 
       {/* ÁREA DE CONTEÚDO PRINCIPAL */}
-      <main className="flex-1">
+      <main className="flex-1 w-full">
         {currentTab === 'feed' && (
           <FeedView
             currentUser={currentUser}
@@ -147,7 +147,7 @@ export default function App() {
       </main>
 
       {/* BARRA INFERIOR MOBILE FIXA PARA TELAS SENSÍVEIS AO TOQUE */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 bg-white border-t border-neutral-200 z-30 flex items-center justify-around py-2 px-1 shadow-lg text-[10px] font-semibold text-neutral-600">
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 bg-white border-t border-neutral-200 z-30 flex items-center justify-around py-2 px-1 shadow-lg text-[10px] font-semibold text-neutral-600 w-full max-w-full overflow-hidden">
         <button
           onClick={() => handleNavigate('feed')}
           className={`flex flex-col items-center gap-0.5 p-1 ${currentTab === 'feed' ? 'text-[#1877F2] font-bold' : ''}`}
