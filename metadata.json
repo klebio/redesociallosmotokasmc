@@ -1,0 +1,6 @@
+{
+  "name": "Los Motokas MC — Nossa História",
+  "description": "Rede social privada e exclusiva para os membros do motoclube Los Motokas MC. Compartilhe viagens, fotos, vídeos, lembranças e a história da irmandade.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

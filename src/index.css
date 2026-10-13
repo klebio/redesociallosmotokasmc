@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --fb-blue: #1877F2;
+    --fb-blue-hover: #0866FF;
+    --fb-bg: #F0F2F5;
+    --fb-card: #FFFFFF;
+    --fb-text: #1C1E21;
+    --fb-text-secondary: #65676B;
+    --fb-border: #E4E6EB;
+    --fb-hover: #F2F2F2;
+  }
+
+  body {
+    font-family: 'Public Sans', system-ui, -apple-system, sans-serif;
+    background-color: var(--fb-bg);
+    color: var(--fb-text);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  }
+}
+
+/* Custom scrollbar matching classic clean style */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #bcc0c4;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #8d949e;
+}
