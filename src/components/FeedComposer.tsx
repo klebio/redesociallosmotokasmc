@@ -151,7 +151,7 @@ export const FeedComposer: React.FC<FeedComposerProps> = ({
 
                 <button
                   type="button"
-                  onClick={() => setMediaUrls((prev) => [...prev, '/src/assets/images/escudo_oficial.jpg'])}
+                  onClick={() => setMediaUrls((prev) => [...prev, store.getOfficialEmblem()])}
                   className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-neutral-600 hover:bg-neutral-100 transition-colors"
                   title="Anexar foto do Escudo Oficial Los Motokas MC"
                 >

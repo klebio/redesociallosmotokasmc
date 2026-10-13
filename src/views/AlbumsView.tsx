@@ -382,7 +382,7 @@ export const AlbumsView: React.FC<AlbumsViewProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setAddMediaUrl('/src/assets/images/escudo_oficial.jpg')}
+                  onClick={() => setAddMediaUrl(store.getOfficialEmblem())}
                   className="px-2.5 py-1 bg-neutral-100 hover:bg-neutral-200 rounded text-[11px] font-semibold text-neutral-700"
                 >
                   Foto Escudo Oficial

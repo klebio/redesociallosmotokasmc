@@ -22,12 +22,14 @@ export const FeedView: React.FC<FeedViewProps> = ({
   const [posts, setPosts] = useState<Post[]>(store.getPosts());
   const [filter, setFilter] = useState<'all' | 'media' | 'diretoria'>('all');
   const [members, setMembers] = useState<Profile[]>(store.getMembers());
+  const [officialEmblem, setOfficialEmblem] = useState<string>(store.getOfficialEmblem());
   const announcements = store.getAnnouncements().slice(0, 2);
 
   React.useEffect(() => {
     const unsub = store.subscribe(() => {
       setPosts(store.getPosts());
       setMembers(store.getMembers());
+      setOfficialEmblem(store.getOfficialEmblem());
     });
     return unsub;
   }, []);
@@ -35,6 +37,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
   const handleRefresh = () => {
     setPosts(store.getPosts());
     setMembers(store.getMembers());
+    setOfficialEmblem(store.getOfficialEmblem());
   };
 
   const filteredPosts = posts.filter((p) => {
@@ -66,7 +69,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
             <div className="px-4 pb-4 -mt-9 text-center">
               <div className="w-18 h-18 mx-auto rounded-full bg-white p-1 shadow-md border border-neutral-100 overflow-hidden mb-2">
                 <img
-                  src="/src/assets/images/escudo_oficial.jpg"
+                  src={officialEmblem}
                   alt="Escudo Oficial LOSMOTOKAS MC - Nossa História"
                   className="w-full h-full object-cover rounded-full"
                   referrerPolicy="no-referrer"

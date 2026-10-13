@@ -76,8 +76,14 @@ export const AuthView: React.FC<AuthViewProps> = ({
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
 
-  // Detecta se a página foi aberta com link de convite / cadastro
+  const [officialEmblem, setOfficialEmblem] = useState<string>(store.getOfficialEmblem());
+
+  // Detecta se a página foi aberta com link de convite / cadastro e sincroniza emblema
   useEffect(() => {
+    const unsub = store.subscribe(() => {
+      setOfficialEmblem(store.getOfficialEmblem());
+    });
+
     const params = new URLSearchParams(window.location.search);
     const hasInvite = 
       params.get('convite') || 
@@ -92,6 +98,8 @@ export const AuthView: React.FC<AuthViewProps> = ({
         setMode('register');
       }
     }
+
+    return unsub;
   }, []);
 
   // Upload local de imagem para avatar
@@ -384,8 +392,8 @@ export const AuthView: React.FC<AuthViewProps> = ({
               {/* ESCUDO OFICIAL */}
               <div className="w-24 h-24 rounded-full bg-white p-1.5 shadow-lg border-2 border-[#1877F2]/25 overflow-hidden mx-auto hover:scale-105 transition-transform">
                 <img
-                  src="/src/assets/images/escudo_oficial.jpg"
-                  alt="Escudo Oficial Los Motokas MC Mossoró RN"
+                  src={officialEmblem}
+                  alt="Escudo Oficial Los Motokas MC"
                   className="w-full h-full object-cover rounded-full"
                   referrerPolicy="no-referrer"
                 />
@@ -495,7 +503,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded-full overflow-hidden border border-neutral-200">
                     <img
-                      src="/src/assets/images/escudo_oficial.jpg"
+                      src={officialEmblem}
                       alt="Escudo"
                       className="w-full h-full object-cover"
                     />

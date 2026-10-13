@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Bell, Shield, User, LogOut, Settings, 
   Database, Flame, ChevronDown, Check, Menu, X, UserPlus,
-  Home, Camera, Bookmark, Users, Megaphone, ShieldCheck 
+  Home, Camera, Bookmark, Users, Megaphone, ShieldCheck, Upload
 } from 'lucide-react';
 import { store } from '../services/store';
 import { isSupabaseConfigured } from '../lib/supabase';
@@ -33,15 +33,57 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [isConfigured, setIsConfigured] = useState(isSupabaseConfigured());
   const [copiedInvite, setCopiedInvite] = useState(false);
 
+  // ESTADO DO EMBLEMA OFICIAL (UPLOAD DO PC)
+  const [officialEmblem, setOfficialEmblem] = useState<string>(store.getOfficialEmblem());
+  const [showEmblemModal, setShowEmblemModal] = useState(false);
+  const [newEmblemPreview, setNewEmblemPreview] = useState<string | null>(null);
+  const [emblemToast, setEmblemToast] = useState<string | null>(null);
+  const emblemInputRef = useRef<HTMLInputElement | null>(null);
+
   useEffect(() => {
     const unsub = store.subscribe(() => {
       setCurrentUser(store.getCurrentUser());
       setAllMembers(store.getMembers());
       setNotifications(store.getNotifications());
       setIsConfigured(isSupabaseConfigured());
+      setOfficialEmblem(store.getOfficialEmblem());
     });
     return unsub;
   }, []);
+
+  const handleEmblemFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        setNewEmblemPreview(event.target.result as string);
+        setShowEmblemModal(true);
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleSaveEmblem = () => {
+    if (newEmblemPreview) {
+      store.setOfficialEmblem(newEmblemPreview);
+      setOfficialEmblem(newEmblemPreview);
+      setShowEmblemModal(false);
+      setNewEmblemPreview(null);
+      setEmblemToast('Emblema oficial atualizado e salvo com sucesso!');
+      setTimeout(() => setEmblemToast(null), 4000);
+    }
+  };
+
+  const handleResetEmblem = () => {
+    store.resetOfficialEmblem();
+    setOfficialEmblem(store.getOfficialEmblem());
+    setShowEmblemModal(false);
+    setNewEmblemPreview(null);
+    setEmblemToast('Emblema oficial restaurado para o padrão.');
+    setTimeout(() => setEmblemToast(null), 4000);
+  };
 
   const unreadNotifs = notifications.filter((n) => !n.read).length;
   const isDiretoria = store.isDiretoria(currentUser);
@@ -62,28 +104,56 @@ export const Navbar: React.FC<NavbarProps> = ({
     <header className="sticky top-0 z-40 bg-[#1877F2] text-white shadow-sm border-b border-[#1466d1] w-full max-w-full">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 h-14 flex items-center justify-between gap-2 sm:gap-4 md:gap-8 w-full max-w-full">
         
-        {/* ZONA 1: MARCA & ESCUDO */}
+        {/* ZONA 1: MARCA & ESCUDO OFICIAL COM UPLOAD DO COMPUTADOR */}
         <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
-          <button 
-            onClick={() => onNavigate('feed')}
-            className="flex items-center gap-2 sm:gap-2.5 text-left group focus:outline-none cursor-pointer"
-          >
-            <div className="w-9 h-9 rounded-full bg-white/10 p-0.5 border border-white/20 flex items-center justify-center overflow-hidden shrink-0 shadow-inner group-hover:scale-105 transition-transform">
+          <input 
+            type="file" 
+            ref={emblemInputRef} 
+            accept="image/*" 
+            className="hidden" 
+            onChange={handleEmblemFileChange} 
+          />
+
+          {/* BOTÃO/ESCUDO COM UPLOAD DIRETO IGUAL FOTO DE PERFIL */}
+          <div className="relative group shrink-0">
+            <button 
+              type="button"
+              onClick={() => emblemInputRef.current?.click()}
+              className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/10 p-0.5 border-2 border-white/40 hover:border-white flex items-center justify-center overflow-hidden shrink-0 shadow-md group cursor-pointer focus:outline-none transition-all"
+              title="Clique para enviar ou trocar o emblema oficial do seu PC"
+            >
               <img 
-                src="/src/assets/images/escudo_oficial.jpg" 
-                alt="Escudo Oficial Los Motokas MC" 
+                src={officialEmblem} 
+                alt="Emblema Oficial Los Motokas MC" 
                 className="w-full h-full object-cover rounded-full"
                 referrerPolicy="no-referrer"
               />
-            </div>
-            <div className="flex flex-col leading-tight">
-              <span className="font-extrabold tracking-tight text-base sm:text-lg uppercase block font-['Plus_Jakarta_Sans'] leading-none">
-                LOSMOTOKAS MC
-              </span>
-              <span className="text-[10px] sm:text-xs font-semibold text-blue-100 block leading-tight mt-0.5">
-                Nossa História
-              </span>
-            </div>
+              {/* Overlay hover com ícone de câmera */}
+              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                <Camera className="w-4 h-4 text-white" />
+              </div>
+            </button>
+            {/* Badge de câmera sobre o emblema para evidenciar que pode alterar */}
+            <button
+              type="button"
+              onClick={() => emblemInputRef.current?.click()}
+              className="absolute -bottom-1 -right-1 bg-neutral-900 hover:bg-neutral-800 text-white p-1 rounded-full border border-white shadow-md cursor-pointer transition-transform hover:scale-110"
+              title="Upload do emblema oficial"
+            >
+              <Camera className="w-2.5 h-2.5" />
+            </button>
+          </div>
+
+          <button 
+            onClick={() => onNavigate('feed')}
+            className="flex flex-col leading-tight text-left group focus:outline-none cursor-pointer"
+          >
+            <span className="font-extrabold tracking-tight text-base sm:text-lg uppercase block font-['Plus_Jakarta_Sans'] leading-none">
+              LOSMOTOKAS MC
+            </span>
+            <span className="text-[10px] sm:text-xs font-semibold text-blue-100 block leading-tight mt-0.5">
+              Nossa História
+            </span>
           </button>
         </div>
 
@@ -664,6 +734,18 @@ export const Navbar: React.FC<NavbarProps> = ({
 
               <button
                 onClick={() => {
+                  setMobileMenuOpen(false);
+                  emblemInputRef.current?.click();
+                }}
+                className="flex items-center justify-center gap-1.5 flex-1 min-w-[130px] py-2 px-3 bg-white/15 hover:bg-white/25 text-white rounded-lg font-semibold transition-colors cursor-pointer"
+                title="Fazer upload do emblema oficial"
+              >
+                <Camera className="w-3.5 h-3.5" />
+                <span>Trocar Emblema</span>
+              </button>
+
+              <button
+                onClick={() => {
                   const url = `${window.location.origin}${window.location.pathname}?convite=losmotokas`;
                   navigator.clipboard.writeText(url);
                   setCopiedInvite(true);
@@ -687,6 +769,110 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* TOAST DE NOTIFICAÇÃO DO EMBLEMA */}
+      {emblemToast && (
+        <div className="fixed top-16 left-4 z-50 bg-emerald-600 text-white px-4 py-2.5 rounded-xl shadow-2xl text-xs sm:text-sm font-bold flex items-center gap-2 animate-in fade-in slide-in-from-top-2 border border-emerald-400/50">
+          <Check className="w-4 h-4 shrink-0 text-white" />
+          <span>{emblemToast}</span>
+        </div>
+      )}
+
+      {/* MODAL DE CONFIRMAÇÃO DE NOVO EMBLEMA OFICIAL */}
+      {showEmblemModal && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-neutral-200 text-[#1C1E21] animate-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-neutral-100">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-blue-50 text-[#1877F2] flex items-center justify-center">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <h3 className="font-bold text-base text-neutral-900">
+                  Definir Emblema Oficial
+                </h3>
+              </div>
+              <button 
+                onClick={() => {
+                  setShowEmblemModal(false);
+                  setNewEmblemPreview(null);
+                }}
+                className="text-neutral-400 hover:text-neutral-600 p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="py-6 flex flex-col items-center text-center">
+              {/* Preview circular com destaque */}
+              <div className="relative group mb-4">
+                <div className="w-32 h-32 rounded-full border-4 border-[#1877F2] shadow-xl overflow-hidden p-1 bg-neutral-50">
+                  <img 
+                    src={newEmblemPreview || officialEmblem} 
+                    alt="Prévia do Emblema Oficial" 
+                    className="w-full h-full object-cover rounded-full"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => emblemInputRef.current?.click()}
+                  className="absolute bottom-1 right-1 bg-neutral-900 hover:bg-neutral-800 text-white p-2 rounded-full border-2 border-white shadow-lg cursor-pointer"
+                  title="Trocar arquivo"
+                >
+                  <Camera className="w-4 h-4" />
+                </button>
+              </div>
+
+              <h4 className="font-bold text-neutral-800 text-sm">
+                Esta imagem do seu PC será o Emblema Oficial
+              </h4>
+              <p className="text-xs text-neutral-500 mt-1.5 max-w-xs leading-relaxed">
+                Ela ficará salva permanentemente no topo esquerdo do app, na tela de login, nos comunicados e em toda a irmandade LOSMOTOKAS MC.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => emblemInputRef.current?.click()}
+                className="mt-3 text-xs font-semibold text-[#1877F2] hover:underline flex items-center gap-1.5"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span>Escolher outro arquivo do meu PC</span>
+              </button>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2 pt-3 border-t border-neutral-100">
+              <button
+                type="button"
+                onClick={handleSaveEmblem}
+                className="flex-1 bg-[#1877F2] hover:bg-[#166fe5] text-white py-2.5 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-md cursor-pointer transition-colors"
+              >
+                <Check className="w-4 h-4" />
+                <span>Confirmar e Salvar Emblema</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowEmblemModal(false);
+                  setNewEmblemPreview(null);
+                }}
+                className="bg-neutral-100 hover:bg-neutral-200 text-neutral-700 py-2.5 px-4 rounded-xl font-semibold text-sm cursor-pointer transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+
+            {/* Opção para restaurar padrão se desejar */}
+            <div className="mt-3 text-center">
+              <button
+                type="button"
+                onClick={handleResetEmblem}
+                className="text-[11px] text-neutral-400 hover:text-neutral-600 underline"
+              >
+                Restaurar emblema padrão original
+              </button>
+            </div>
           </div>
         </div>
       )}

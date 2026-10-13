@@ -29,9 +29,12 @@ function save<T>(key: string, value: T): void {
   }
 }
 
+const DEFAULT_OFFICIAL_EMBLEM = '/src/assets/images/escudo_oficial.jpg';
+
 // Estado reativo da aplicação (Apenas dados e membros reais)
 class DataStore {
   private currentUserId: string = loadOr('currentUserId', '');
+  private officialEmblem: string = loadOr('officialEmblem', DEFAULT_OFFICIAL_EMBLEM);
   private members: Profile[] = loadOr('members', INITIAL_MEMBERS);
   private posts: Post[] = loadOr('posts', INITIAL_POSTS);
   private albums: Album[] = loadOr('albums', INITIAL_ALBUMS);
@@ -205,6 +208,23 @@ class DataStore {
     } catch (err) {
       console.warn('Aviso: Utilizando sincronização local enquanto Supabase é provisionado:', err);
     }
+  }
+
+  // EMBLEMA OFICIAL DO MOTOCLUBE
+  public getOfficialEmblem(): string {
+    return this.officialEmblem || DEFAULT_OFFICIAL_EMBLEM;
+  }
+
+  public setOfficialEmblem(urlOrBase64: string): void {
+    this.officialEmblem = urlOrBase64 || DEFAULT_OFFICIAL_EMBLEM;
+    save('officialEmblem', this.officialEmblem);
+    this.notify();
+  }
+
+  public resetOfficialEmblem(): void {
+    this.officialEmblem = DEFAULT_OFFICIAL_EMBLEM;
+    save('officialEmblem', this.officialEmblem);
+    this.notify();
   }
 
   // SESSÃO & USUÁRIO
