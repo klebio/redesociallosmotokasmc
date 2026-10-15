@@ -1,20 +1,38 @@
 /**
- * Script SQL de Migração do Banco de Dados PostgreSQL & Supabase
+ * Script SQL Definitivo de Migração do Banco de Dados PostgreSQL & Supabase
  * Los Motokas MC — Nossa História
- * Inclui: Tabelas, Índices, Políticas RLS, Storage e Triggers
+ * Inclui: Tabelas, Índices, Políticas RLS, Storage Bucket e Triggers
  */
 
 export const SUPABASE_SQL_MIGRATION = `-- ====================================================================
--- LOS MOTOKAS MC — REDE SOCIAL OFICIAL DA IRMANDADE
--- SCRIPT DE CRIAÇÃO DO BANCO DE DADOS POSTGRESQL & POLÍTICAS RLS
+-- LOS MOTOKAS MC — NOSSA HISTÓRIA
+-- BANCO DE DADOS POSTGRESQL & POLÍTICAS RLS NO SUPABASE
+-- Execute este script no SQL Editor do painel do seu projeto Supabase:
+-- https://supabase.com/dashboard/project/vqxocqqjzchpynrertcu/sql/new
 -- ====================================================================
 
--- 1. HABILITAR EXTENSÃO UUID
+-- 1. HABILITAR EXTENSÃO CRIPTOGRÁFICA / UUID
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- 2. TABELA DE PERFIS DOS MEMBROS (VINCULADA A AUTH.USERS)
-CREATE TABLE IF NOT EXISTS public.profiles (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+-- 2. RECRIAÇÃO LIMPA DE TABELAS (REMOVE RESTRIÇÕES ANTIGAS COM CONFLITO)
+DROP TABLE IF EXISTS public.post_media CASCADE;
+DROP TABLE IF EXISTS public.album_media CASCADE;
+DROP TABLE IF EXISTS public.comments CASCADE;
+DROP TABLE IF EXISTS public.reactions CASCADE;
+DROP TABLE IF EXISTS public.saved_posts CASCADE;
+DROP TABLE IF EXISTS public.notifications CASCADE;
+DROP TABLE IF EXISTS public.audit_logs CASCADE;
+DROP TABLE IF EXISTS public.announcements CASCADE;
+DROP TABLE IF EXISTS public.posts CASCADE;
+DROP TABLE IF EXISTS public.albums CASCADE;
+DROP TABLE IF EXISTS public.member_requests CASCADE;
+DROP TABLE IF EXISTS public.app_settings CASCADE;
+DROP TABLE IF EXISTS public.profiles CASCADE;
+
+-- 3. TABELA DE PERFIS DOS MEMBROS (SUPORTA UUID DO AUTH E IDS TEXTUAIS)
+CREATE TABLE public.profiles (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   email TEXT NOT NULL,
   full_name TEXT NOT NULL,
   nickname TEXT NOT NULL,
@@ -24,14 +42,17 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   avatar_url TEXT,
   cover_url TEXT,
   phone TEXT,
+  birth_date TEXT,
+  mother_name TEXT,
+  password TEXT,
   motorcycle_model TEXT,
   joined_at DATE DEFAULT CURRENT_DATE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 3. TABELA DE SOLICITAÇÕES DE ADESÃO (FILA DE APROVAÇÃO PELA DIRETORIA)
-CREATE TABLE IF NOT EXISTS public.member_requests (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+-- 4. TABELA DE SOLICITAÇÕES DE ADESÃO (FILA DA DIRETORIA)
+CREATE TABLE public.member_requests (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   full_name TEXT NOT NULL,
   nickname TEXT NOT NULL,
   email TEXT NOT NULL,
@@ -43,31 +64,33 @@ CREATE TABLE IF NOT EXISTS public.member_requests (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 4. TABELA DE PUBLICAÇÕES (FEED DA IRMANDADE)
-CREATE TABLE IF NOT EXISTS public.posts (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  author_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+-- 5. TABELA DE PUBLICAÇÕES (FEED DA IRMANDADE)
+CREATE TABLE public.posts (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  author_id TEXT NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
   privacy TEXT NOT NULL DEFAULT 'brothers_only' CHECK (privacy IN ('brothers_only', 'diretoria_only')),
+  likes_count INT NOT NULL DEFAULT 0,
+  comments_count INT NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ
 );
 
--- 5. TABELA DE MÍDIAS DAS PUBLICAÇÕES (FOTOGRAFIAS E VÍDEOS)
-CREATE TABLE IF NOT EXISTS public.post_media (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  post_id UUID NOT NULL REFERENCES public.posts(id) ON DELETE CASCADE,
-  media_type TEXT NOT NULL CHECK (media_type IN ('photo', 'video')),
+-- 6. TABELA DE MÍDIAS DAS PUBLICAÇÕES
+CREATE TABLE public.post_media (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  post_id TEXT NOT NULL REFERENCES public.posts(id) ON DELETE CASCADE,
+  media_type TEXT NOT NULL DEFAULT 'photo' CHECK (media_type IN ('photo', 'video')),
   url TEXT NOT NULL,
-  storage_path TEXT NOT NULL,
+  storage_path TEXT,
   caption TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 6. TABELA DE ÁLBUNS DA IRMANDADE
-CREATE TABLE IF NOT EXISTS public.albums (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  author_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+-- 7. TABELA DE ÁLBUNS DA IRMANDADE (GALERIA)
+CREATE TABLE public.albums (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  author_id TEXT NOT NULL,
   title TEXT NOT NULL,
   description TEXT,
   cover_url TEXT,
@@ -76,76 +99,83 @@ CREATE TABLE IF NOT EXISTS public.albums (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 7. TABELA DE MÍDIAS DOS ÁLBUNS
-CREATE TABLE IF NOT EXISTS public.album_media (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  album_id UUID NOT NULL REFERENCES public.albums(id) ON DELETE CASCADE,
-  media_type TEXT NOT NULL CHECK (media_type IN ('photo', 'video')),
+-- 8. TABELA DE MÍDIAS DOS ÁLBUNS
+CREATE TABLE public.album_media (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  album_id TEXT NOT NULL REFERENCES public.albums(id) ON DELETE CASCADE,
+  media_type TEXT NOT NULL DEFAULT 'photo' CHECK (media_type IN ('photo', 'video')),
   url TEXT NOT NULL,
-  storage_path TEXT NOT NULL,
+  storage_path TEXT,
   caption TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 8. TABELA DE COMENTÁRIOS
-CREATE TABLE IF NOT EXISTS public.comments (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  post_id UUID NOT NULL REFERENCES public.posts(id) ON DELETE CASCADE,
-  author_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+-- 9. TABELA DE COMENTÁRIOS
+CREATE TABLE public.comments (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  post_id TEXT NOT NULL REFERENCES public.posts(id) ON DELETE CASCADE,
+  author_id TEXT NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 9. TABELA DE REAÇÕES (CURTIDAS DA IRMANDADE)
-CREATE TABLE IF NOT EXISTS public.reactions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  post_id UUID NOT NULL REFERENCES public.posts(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+-- 10. TABELA DE REAÇÕES (CURTIDAS DA IRMANDADE)
+CREATE TABLE public.reactions (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  post_id TEXT NOT NULL REFERENCES public.posts(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   reaction_type TEXT NOT NULL DEFAULT 'like' CHECK (reaction_type IN ('like', 'love', 'respect', 'road')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT unique_post_user_reaction UNIQUE (post_id, user_id)
 );
 
--- 10. TABELA DE PUBLICAÇÕES SALVAS (MINHAS RECORDAÇÕES)
-CREATE TABLE IF NOT EXISTS public.saved_posts (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  post_id UUID NOT NULL REFERENCES public.posts(id) ON DELETE CASCADE,
+-- 11. TABELA DE PUBLICAÇÕES SALVAS (RECORDAÇÕES)
+CREATE TABLE public.saved_posts (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  user_id TEXT NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  post_id TEXT NOT NULL REFERENCES public.posts(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT unique_user_post_saved UNIQUE (user_id, post_id)
 );
 
--- 11. TABELA DE COMUNICADOS OFICIAIS DA DIRETORIA
-CREATE TABLE IF NOT EXISTS public.announcements (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  author_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+-- 12. TABELA DE COMUNICADOS OFICIAIS DA DIRETORIA
+CREATE TABLE public.announcements (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  author_id TEXT NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   content TEXT NOT NULL,
   priority TEXT NOT NULL DEFAULT 'normal' CHECK (priority IN ('normal', 'urgent')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 12. TABELA DE NOTIFICAÇÕES
-CREATE TABLE IF NOT EXISTS public.notifications (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  actor_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  type TEXT NOT NULL CHECK (type IN ('reaction', 'comment', 'announcement', 'member_approved')),
-  entity_id UUID,
+-- 13. TABELA DE NOTIFICAÇÕES
+CREATE TABLE public.notifications (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  user_id TEXT NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  actor_id TEXT,
+  type TEXT NOT NULL,
+  entity_id TEXT,
   message TEXT NOT NULL,
   read BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 13. REGISTROS DE AUDITORIA ADMINISTRATIVA
-CREATE TABLE IF NOT EXISTS public.audit_logs (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  actor_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+-- 14. TABELA DE AUDITORIA ADMINISTRATIVA
+CREATE TABLE public.audit_logs (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  actor_id TEXT,
   action TEXT NOT NULL,
   target_type TEXT NOT NULL,
   target_id TEXT NOT NULL,
   details TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 15. TABELA DE CONFIGURAÇÕES DO SISTEMA (EMBLEMA OFICIAL, DADOS DO CLUBE)
+CREATE TABLE public.app_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- ====================================================================
@@ -162,7 +192,7 @@ CREATE INDEX IF NOT EXISTS idx_saved_posts_user ON public.saved_posts(user_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_read ON public.notifications(user_id, read);
 
 -- ====================================================================
--- ROW LEVEL SECURITY (RLS) POLICIES
+-- HABILITAÇÃO DO ROW LEVEL SECURITY (RLS) COM POLÍTICAS DIRETAS
 -- ====================================================================
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.member_requests ENABLE ROW LEVEL SECURITY;
@@ -176,196 +206,115 @@ ALTER TABLE public.saved_posts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.announcements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.app_settings ENABLE ROW LEVEL SECURITY;
 
--- FUNÇÃO AUXILIAR: VERIFICAR SE O USUÁRIO É DA DIRETORIA
-CREATE OR REPLACE FUNCTION public.is_diretoria(user_id UUID)
-RETURNS BOOLEAN AS $$
-BEGIN
-  RETURN EXISTS (
-    SELECT 1 FROM public.profiles
-    WHERE id = user_id AND role = 'diretoria' AND status = 'active'
-  );
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- POLÍTICAS: PROFILES
-DROP POLICY IF EXISTS "Perfis ativos visiveis por membros" ON public.profiles;
-CREATE POLICY "Perfis ativos visiveis por membros" ON public.profiles
-  FOR SELECT TO authenticated
-  USING (true);
-
-DROP POLICY IF EXISTS "Membro edita proprio perfil" ON public.profiles;
-CREATE POLICY "Membro edita proprio perfil" ON public.profiles
-  FOR UPDATE TO authenticated
-  USING (auth.uid() = id);
-
--- POLÍTICAS: MEMBER_REQUESTS
-DROP POLICY IF EXISTS "Qualquer um pode enviar solicitacao" ON public.member_requests;
-CREATE POLICY "Qualquer um pode enviar solicitacao" ON public.member_requests
-  FOR INSERT TO anon, authenticated
-  WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Apenas diretoria visualiza solicitacoes" ON public.member_requests;
-CREATE POLICY "Apenas diretoria visualiza solicitacoes" ON public.member_requests
-  FOR SELECT TO authenticated
-  USING (public.is_diretoria(auth.uid()));
-
-DROP POLICY IF EXISTS "Apenas diretoria altera solicitacoes" ON public.member_requests;
-CREATE POLICY "Apenas diretoria altera solicitacoes" ON public.member_requests
-  FOR UPDATE TO authenticated
-  USING (public.is_diretoria(auth.uid()));
-
--- POLÍTICAS: POSTS
-DROP POLICY IF EXISTS "Membros leem posts permitidos" ON public.posts;
-CREATE POLICY "Membros leem posts permitidos" ON public.posts
-  FOR SELECT TO authenticated
-  USING (
-    privacy = 'brothers_only' OR 
-    (privacy = 'diretoria_only' AND public.is_diretoria(auth.uid()))
-  );
-
-DROP POLICY IF EXISTS "Membros ativos criam posts" ON public.posts;
-CREATE POLICY "Membros ativos criam posts" ON public.posts
-  FOR INSERT TO authenticated
-  WITH CHECK (auth.uid() = author_id);
-
-DROP POLICY IF EXISTS "Autor ou diretoria atualiza post" ON public.posts;
-CREATE POLICY "Autor ou diretoria atualiza post" ON public.posts
-  FOR UPDATE TO authenticated
-  USING (auth.uid() = author_id OR public.is_diretoria(auth.uid()));
-
-DROP POLICY IF EXISTS "Autor ou diretoria remove post" ON public.posts;
-CREATE POLICY "Autor ou diretoria remove post" ON public.posts
-  FOR DELETE TO authenticated
-  USING (auth.uid() = author_id OR public.is_diretoria(auth.uid()));
-
--- POLÍTICAS: POST_MEDIA
-DROP POLICY IF EXISTS "Leitura de midias de posts" ON public.post_media;
-CREATE POLICY "Leitura de midias de posts" ON public.post_media
-  FOR SELECT TO authenticated
-  USING (true);
-
-DROP POLICY IF EXISTS "Insercao de midias pelo autor" ON public.post_media;
-CREATE POLICY "Insercao de midias pelo autor" ON public.post_media
-  FOR INSERT TO authenticated
-  WITH CHECK (true);
-
--- POLÍTICAS: ALBUMS
-DROP POLICY IF EXISTS "Membros visualizam albuns" ON public.albums;
-CREATE POLICY "Membros visualizam albuns" ON public.albums
-  FOR SELECT TO authenticated
-  USING (true);
-
-DROP POLICY IF EXISTS "Membros criam albuns" ON public.albums;
-CREATE POLICY "Membros criam albuns" ON public.albums
-  FOR INSERT TO authenticated
-  WITH CHECK (auth.uid() = author_id);
-
-DROP POLICY IF EXISTS "Autor ou diretoria gerencia albuns" ON public.albums;
-CREATE POLICY "Autor ou diretoria gerencia albuns" ON public.albums
-  FOR ALL TO authenticated
-  USING (auth.uid() = author_id OR public.is_diretoria(auth.uid()));
-
--- POLÍTICAS: ALBUM_MEDIA
-DROP POLICY IF EXISTS "Membros visualizam midias de albuns" ON public.album_media;
-CREATE POLICY "Membros visualizam midias de albuns" ON public.album_media
-  FOR SELECT TO authenticated
-  USING (true);
-
-DROP POLICY IF EXISTS "Membros adicionam fotos aos albuns" ON public.album_media;
-CREATE POLICY "Membros adicionam fotos aos albuns" ON public.album_media
-  FOR INSERT TO authenticated
-  WITH CHECK (true);
-
--- POLÍTICAS: COMMENTS
-DROP POLICY IF EXISTS "Membros visualizam comentarios" ON public.comments;
-CREATE POLICY "Membros visualizam comentarios" ON public.comments
-  FOR SELECT TO authenticated
-  USING (true);
-
-DROP POLICY IF EXISTS "Membros criam comentarios" ON public.comments;
-CREATE POLICY "Membros criam comentarios" ON public.comments
-  FOR INSERT TO authenticated
-  WITH CHECK (auth.uid() = author_id);
-
-DROP POLICY IF EXISTS "Autor ou diretoria remove comentarios" ON public.comments;
-CREATE POLICY "Autor ou diretoria remove comentarios" ON public.comments
-  FOR DELETE TO authenticated
-  USING (auth.uid() = author_id OR public.is_diretoria(auth.uid()));
-
--- POLÍTICAS: REACTIONS
-DROP POLICY IF EXISTS "Membros visualizam reacoes" ON public.reactions;
-CREATE POLICY "Membros visualizam reacoes" ON public.reactions
-  FOR SELECT TO authenticated
-  USING (true);
-
-DROP POLICY IF EXISTS "Membros gerenciam proprias reacoes" ON public.reactions;
-CREATE POLICY "Membros gerenciam proprias reacoes" ON public.reactions
-  FOR ALL TO authenticated
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
-
--- POLÍTICAS: SAVED_POSTS
-DROP POLICY IF EXISTS "Membro gerencia posts salvos" ON public.saved_posts;
-CREATE POLICY "Membro gerencia posts salvos" ON public.saved_posts
-  FOR ALL TO authenticated
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
-
--- POLÍTICAS: ANNOUNCEMENTS
-DROP POLICY IF EXISTS "Todos leem comunicados" ON public.announcements;
-CREATE POLICY "Todos leem comunicados" ON public.announcements
-  FOR SELECT TO authenticated
-  USING (true);
-
-DROP POLICY IF EXISTS "Diretoria gerencia comunicados" ON public.announcements;
-CREATE POLICY "Diretoria gerencia comunicados" ON public.announcements
-  FOR ALL TO authenticated
-  USING (public.is_diretoria(auth.uid()));
-
--- POLÍTICAS: NOTIFICATIONS
-DROP POLICY IF EXISTS "Membro acessa proprias notificacoes" ON public.notifications;
-CREATE POLICY "Membro acessa proprias notificacoes" ON public.notifications
-  FOR ALL TO authenticated
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
-
--- POLÍTICAS: AUDIT_LOGS
-DROP POLICY IF EXISTS "Diretoria acessa logs de auditoria" ON public.audit_logs;
-CREATE POLICY "Diretoria acessa logs de auditoria" ON public.audit_logs
-  FOR SELECT TO authenticated
-  USING (public.is_diretoria(auth.uid()));
-
-DROP POLICY IF EXISTS "Insercao de auditoria" ON public.audit_logs;
-CREATE POLICY "Insercao de auditoria" ON public.audit_logs
-  FOR INSERT TO authenticated
-  WITH CHECK (true);
+-- POLÍTICAS COMPLETAS DE ACESSO PARA ANON E AUTHENTICATED
+CREATE POLICY "profiles_access" ON public.profiles FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "requests_access" ON public.member_requests FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "posts_access" ON public.posts FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "post_media_access" ON public.post_media FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "albums_access" ON public.albums FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "album_media_access" ON public.album_media FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "comments_access" ON public.comments FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "reactions_access" ON public.reactions FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "saved_posts_access" ON public.saved_posts FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "announcements_access" ON public.announcements FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "notifications_access" ON public.notifications FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "audit_logs_access" ON public.audit_logs FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "app_settings_access" ON public.app_settings FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 
 -- ====================================================================
--- SUPABASE STORAGE BUCKET PARA FOTOS E VÍDEOS
+-- SEED DOS DOIS ADMINISTRADORES OFICIAIS PERMANENTES
+-- ====================================================================
+INSERT INTO public.profiles (
+  id, email, full_name, nickname, role, status, bio, motorcycle_model, joined_at
+) VALUES 
+(
+  'admin-jequisilveira',
+  'jequisilveira@gmail.com',
+  'Jequi Silveira',
+  'Jequi',
+  'diretoria',
+  'active',
+  'Administrador e Oficial da Diretoria — Los Motokas MC Mossoró/RN.',
+  'Harley-Davidson / Custom',
+  '2024-01-01'
+),
+(
+  'admin-klebiohonorato',
+  'klebiohonoratorocha@gmail.com',
+  'Klébio Honorato Rocha',
+  'Klébio',
+  'diretoria',
+  'active',
+  'Administrador e Oficial da Diretoria — Los Motokas MC Mossoró/RN.',
+  'Harley-Davidson / Custom',
+  '2024-01-01'
+)
+ON CONFLICT (id) DO UPDATE SET 
+  role = 'diretoria', 
+  status = 'active';
+
+-- ====================================================================
+-- SEED DOS ÁLBUNS OFICIAIS DA IRMANDADE (GALERIA)
+-- ====================================================================
+INSERT INTO public.albums (id, title, description, category, is_official, author_id)
+VALUES 
+(
+  'album-01',
+  'Viagens & Estradas — Los Motokas MC',
+  'Registros das grandes viagens, travessias e expedições da irmandade.',
+  'Viagens',
+  true,
+  'admin-klebiohonorato'
+),
+(
+  'album-02',
+  'Encontros, Festas & Aniversários',
+  'Comemorações e confraternizações no motoclube.',
+  'Eventos',
+  true,
+  'admin-jequisilveira'
+),
+(
+  'album-03',
+  'Motos, Máquinas & Customizações',
+  'As motocicletas oficiais dos irmãos do Los Motokas MC.',
+  'Motos',
+  true,
+  'admin-klebiohonorato'
+)
+ON CONFLICT (id) DO NOTHING;
+
+-- ====================================================================
+-- CONFIGURAÇÃO DO BUCKET DO SUPABASE STORAGE (FOTOS & VÍDEOS)
 -- ====================================================================
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('motokas-media', 'motokas-media', true)
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET public = true;
 
--- POLÍTICAS DO STORAGE BUCKET
-DROP POLICY IF EXISTS "Membros visualizam arquivos do motokas-media" ON storage.objects;
-CREATE POLICY "Membros visualizam arquivos do motokas-media" ON storage.objects
-  FOR SELECT TO authenticated
+DROP POLICY IF EXISTS "Public View motokas-media" ON storage.objects;
+CREATE POLICY "Public View motokas-media" ON storage.objects 
+  FOR SELECT TO anon, authenticated 
   USING (bucket_id = 'motokas-media');
 
-DROP POLICY IF EXISTS "Membros enviam arquivos para motokas-media" ON storage.objects;
-CREATE POLICY "Membros enviam arquivos para motokas-media" ON storage.objects
-  FOR INSERT TO authenticated
+DROP POLICY IF EXISTS "Public Upload motokas-media" ON storage.objects;
+CREATE POLICY "Public Upload motokas-media" ON storage.objects 
+  FOR INSERT TO anon, authenticated 
   WITH CHECK (bucket_id = 'motokas-media');
 
-DROP POLICY IF EXISTS "Proprietario ou diretoria remove arquivos" ON storage.objects;
-CREATE POLICY "Proprietario ou diretoria remove arquivos" ON storage.objects
-  FOR DELETE TO authenticated
-  USING (bucket_id = 'motokas-media' AND (auth.uid() = owner OR public.is_diretoria(auth.uid())));
+DROP POLICY IF EXISTS "Public Update motokas-media" ON storage.objects;
+CREATE POLICY "Public Update motokas-media" ON storage.objects 
+  FOR UPDATE TO anon, authenticated 
+  USING (bucket_id = 'motokas-media');
+
+DROP POLICY IF EXISTS "Public Delete motokas-media" ON storage.objects;
+CREATE POLICY "Public Delete motokas-media" ON storage.objects 
+  FOR DELETE TO anon, authenticated 
+  USING (bucket_id = 'motokas-media');
 
 -- ====================================================================
--- TRIGGER PARA CRIAR PERFIL AUTOMÁTICO AO CADASTRAR USUÁRIO NO AUTH
+-- TRIGGER PARA SINCRONIZAR USUÁRIOS CRIADOS PELO SUPABASE AUTH
 -- ====================================================================
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
@@ -378,23 +327,32 @@ BEGIN
     role,
     status,
     bio,
-    avatar_url,
-    cover_url,
     motorcycle_model,
+    phone,
+    birth_date,
+    mother_name,
     joined_at
   ) VALUES (
-    NEW.id,
+    NEW.id::text,
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'full_name', 'Membro Los Motokas'),
     COALESCE(NEW.raw_user_meta_data->>'nickname', 'Irmão'),
-    COALESCE(NEW.raw_user_meta_data->>'role', 'membro'),
+    CASE 
+      WHEN LOWER(NEW.email) IN ('jequisilveira@gmail.com', 'klebiohonoratorocha@gmail.com') THEN 'diretoria'
+      ELSE COALESCE(NEW.raw_user_meta_data->>'role', 'membro')
+    END,
     'active',
     'Orgulho em rodar com o Los Motokas MC.',
-    NULL,
-    NULL,
-    COALESCE(NEW.raw_user_meta_data->>'motorcycle_model', 'Harley Davidson'),
+    COALESCE(NEW.raw_user_meta_data->>'motorcycle_model', 'Harley-Davidson / Custom'),
+    COALESCE(NEW.raw_user_meta_data->>'phone', ''),
+    COALESCE(NEW.raw_user_meta_data->>'birth_date', ''),
+    COALESCE(NEW.raw_user_meta_data->>'mother_name', ''),
     CURRENT_DATE
-  );
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    email = EXCLUDED.email,
+    full_name = EXCLUDED.full_name,
+    nickname = EXCLUDED.nickname;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

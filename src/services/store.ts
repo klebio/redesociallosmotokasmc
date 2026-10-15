@@ -181,12 +181,43 @@ class DataStore {
     if (!client) return;
 
     try {
+      // 1. Carrega configurações do sistema (ex: emblema oficial do clube)
+      try {
+        const { data: settingsData } = await client.from('app_settings').select('*');
+        if (settingsData && settingsData.length > 0) {
+          const emblemSetting = settingsData.find((s: any) => s.key === 'official_emblem');
+          if (emblemSetting && emblemSetting.value) {
+            this.officialEmblem = emblemSetting.value;
+            save('officialEmblem', this.officialEmblem);
+          }
+        }
+      } catch (err) {
+        console.warn('Erro ao carregar app_settings do Supabase:', err);
+      }
+
+      // 2. Carrega perfis de membros
       const { data: profilesData } = await client.from('profiles').select('*');
       if (profilesData && profilesData.length > 0) {
         this.members = profilesData;
         save('members', this.members);
+      } else {
+        // Se a tabela ainda estiver vazia, sincroniza os admins iniciais
+        for (const admin of INITIAL_MEMBERS) {
+          await client.from('profiles').upsert({
+            id: admin.id,
+            email: admin.email,
+            full_name: admin.full_name,
+            nickname: admin.nickname,
+            role: admin.role,
+            status: admin.status,
+            bio: admin.bio,
+            motorcycle_model: admin.motorcycle_model,
+            joined_at: admin.joined_at,
+          });
+        }
       }
 
+      // 3. Carrega publicações com mídias
       const { data: postsData } = await client.from('posts').select('*, post_media(*)').order('created_at', { ascending: false });
       if (postsData && postsData.length > 0) {
         this.posts = postsData.map((p) => ({
@@ -198,10 +229,34 @@ class DataStore {
         save('posts', this.posts);
       }
 
+      // 4. Carrega álbuns da irmandade
+      const { data: albumsData } = await client.from('albums').select('*, album_media(*)').order('created_at', { ascending: false });
+      if (albumsData && albumsData.length > 0) {
+        this.albums = albumsData.map((a: any) => ({
+          ...a,
+          media_count: (a.album_media || []).length,
+        }));
+        albumsData.forEach((a: any) => {
+          if (a.album_media) {
+            this.albumMedia[a.id] = a.album_media;
+          }
+        });
+        save('albums', this.albums);
+        save('albumMedia', this.albumMedia);
+      }
+
+      // 5. Carrega comunicados oficiais
       const { data: announcementsData } = await client.from('announcements').select('*').order('created_at', { ascending: false });
       if (announcementsData && announcementsData.length > 0) {
         this.announcements = announcementsData;
         save('announcements', this.announcements);
+      }
+
+      // 6. Carrega solicitações de adesão
+      const { data: requestsData } = await client.from('member_requests').select('*').order('created_at', { ascending: false });
+      if (requestsData && requestsData.length > 0) {
+        this.requests = requestsData;
+        save('requests', this.requests);
       }
 
       this.notify();
@@ -218,12 +273,41 @@ class DataStore {
   public setOfficialEmblem(urlOrBase64: string): void {
     this.officialEmblem = urlOrBase64 || DEFAULT_OFFICIAL_EMBLEM;
     save('officialEmblem', this.officialEmblem);
+
+    // Sincroniza emblema no Supabase
+    if (isSupabaseConfigured()) {
+      const client = getSupabase();
+      if (client) {
+        client.from('app_settings').upsert({
+          key: 'official_emblem',
+          value: this.officialEmblem,
+          updated_at: new Date().toISOString(),
+        }).then(({ error }) => {
+          if (error) console.warn('Aviso ao sincronizar emblema oficial no Supabase:', error);
+        });
+      }
+    }
+
     this.notify();
   }
 
   public resetOfficialEmblem(): void {
     this.officialEmblem = DEFAULT_OFFICIAL_EMBLEM;
     save('officialEmblem', this.officialEmblem);
+
+    if (isSupabaseConfigured()) {
+      const client = getSupabase();
+      if (client) {
+        client.from('app_settings').upsert({
+          key: 'official_emblem',
+          value: DEFAULT_OFFICIAL_EMBLEM,
+          updated_at: new Date().toISOString(),
+        }).then(({ error }) => {
+          if (error) console.warn('Aviso ao resetar emblema no Supabase:', error);
+        });
+      }
+    }
+
     this.notify();
   }
 
@@ -618,6 +702,27 @@ class DataStore {
 
     this.posts.unshift(newPost);
     save('posts', this.posts);
+
+    // Sincroniza postagem no Supabase
+    if (isSupabaseConfigured()) {
+      const client = getSupabase();
+      if (client) {
+        client.from('posts').insert({
+          id: newPost.id,
+          author_id: user.id,
+          content: data.content,
+          privacy: data.privacy,
+          created_at: newPost.created_at,
+          likes_count: 0,
+          comments_count: 0,
+        }).then(async ({ error }) => {
+          if (!error && newMedia.length > 0) {
+            await client.from('post_media').insert(newMedia);
+          }
+        });
+      }
+    }
+
     this.notify();
     return newPost;
   }
@@ -627,6 +732,14 @@ class DataStore {
     if (!post) return;
     this.posts = this.posts.filter((p) => p.id !== postId);
     save('posts', this.posts);
+
+    if (isSupabaseConfigured()) {
+      const client = getSupabase();
+      if (client) {
+        client.from('posts').delete().eq('id', postId).then(() => {});
+      }
+    }
+
     this.addAuditLog('EXCLUSAO_POST', 'post', postId, `Publicação removida.`);
     this.notify();
   }
@@ -714,6 +827,20 @@ class DataStore {
 
     this.posts = this.posts.map((p) => (p.id === postId ? { ...p, comments_count: p.comments_count + 1 } : p));
     save('posts', this.posts);
+
+    if (isSupabaseConfigured()) {
+      const client = getSupabase();
+      if (client) {
+        client.from('comments').insert({
+          id: newComment.id,
+          post_id: postId,
+          author_id: user.id,
+          content,
+          created_at: newComment.created_at,
+        }).then(() => {});
+      }
+    }
+
     this.notify();
     return newComment;
   }
@@ -751,6 +878,23 @@ class DataStore {
     this.albumMedia[newAlbum.id] = [];
     save('albums', this.albums);
     save('albumMedia', this.albumMedia);
+
+    if (isSupabaseConfigured()) {
+      const client = getSupabase();
+      if (client) {
+        client.from('albums').insert({
+          id: newAlbum.id,
+          author_id: user.id,
+          title: data.title,
+          description: data.description,
+          category: data.category,
+          cover_url: newAlbum.cover_url,
+          is_official: newAlbum.is_official,
+          created_at: newAlbum.created_at,
+        }).then(() => {});
+      }
+    }
+
     this.notify();
     return newAlbum;
   }
@@ -771,6 +915,22 @@ class DataStore {
     }
     this.albumMedia[albumId].push(newMedia);
     save('albumMedia', this.albumMedia);
+
+    if (isSupabaseConfigured()) {
+      const client = getSupabase();
+      if (client) {
+        client.from('album_media').insert({
+          id: newMedia.id,
+          album_id: albumId,
+          media_type: newMedia.media_type,
+          url: newMedia.url,
+          storage_path: newMedia.storage_path,
+          caption: newMedia.caption,
+          created_at: newMedia.created_at,
+        }).then(() => {});
+      }
+    }
+
     this.notify();
     return newMedia;
   }
@@ -799,6 +959,21 @@ class DataStore {
 
     this.announcements.unshift(newAnn);
     save('announcements', this.announcements);
+
+    if (isSupabaseConfigured()) {
+      const client = getSupabase();
+      if (client) {
+        client.from('announcements').insert({
+          id: newAnn.id,
+          author_id: user.id,
+          title: data.title,
+          content: data.content,
+          priority: data.priority,
+          created_at: newAnn.created_at,
+        }).then(() => {});
+      }
+    }
+
     this.addAuditLog('NOVO_COMUNICADO', 'announcement', newAnn.id, `Comunicado emitido: ${data.title}`);
     this.notify();
     return newAnn;
@@ -807,6 +982,14 @@ class DataStore {
   public deleteAnnouncement(id: string) {
     this.announcements = this.announcements.filter((a) => a.id !== id);
     save('announcements', this.announcements);
+
+    if (isSupabaseConfigured()) {
+      const client = getSupabase();
+      if (client) {
+        client.from('announcements').delete().eq('id', id).then(() => {});
+      }
+    }
+
     this.addAuditLog('EXCLUSAO_COMUNICADO', 'announcement', id, `Comunicado oficial removido.`);
     this.notify();
   }

@@ -2,25 +2,39 @@ import React, { useState } from 'react';
 import { 
   ShieldCheck, UserCheck, UserX, Clock, AlertCircle, 
   FileText, CheckCircle2, ChevronRight, UserCog, History, 
-  Copy, Check, Share2, Send, ExternalLink, Sparkles 
+  Copy, Check, Share2, Send, ExternalLink, Sparkles, Database, Terminal, RefreshCw 
 } from 'lucide-react';
 import { MemberRequest, Profile, AuditLog, MemberRole, MemberStatus } from '../types/database';
 import { store } from '../services/store';
+import { SUPABASE_SQL_MIGRATION } from '../lib/schema-generator';
+import { isSupabaseConfigured, getStoredConfig } from '../lib/supabase';
 
 interface AdminViewProps {
   currentUser: Profile | null;
   onNavigateToProfile: (userId: string) => void;
+  onOpenConfig?: () => void;
 }
 
 export const AdminView: React.FC<AdminViewProps> = ({
   currentUser,
   onNavigateToProfile,
+  onOpenConfig,
 }) => {
-  const [activeTab, setActiveTab] = useState<'requests' | 'members' | 'audit'>('requests');
+  const [activeTab, setActiveTab] = useState<'requests' | 'members' | 'audit' | 'database'>('requests');
   const [requests, setRequests] = useState<MemberRequest[]>(store.getRequests());
   const [members, setMembers] = useState<Profile[]>(store.getMembers());
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(store.getAuditLogs());
   const [copiedInvite, setCopiedInvite] = useState(false);
+  const [copiedSql, setCopiedSql] = useState(false);
+
+  const config = getStoredConfig();
+  const isConfigured = isSupabaseConfigured();
+
+  const handleCopySql = () => {
+    navigator.clipboard.writeText(SUPABASE_SQL_MIGRATION);
+    setCopiedSql(true);
+    setTimeout(() => setCopiedSql(false), 2500);
+  };
 
   const inviteUrl = typeof window !== 'undefined' 
     ? `${window.location.origin}${window.location.pathname}?convite=losmotokas` 
@@ -247,6 +261,19 @@ export const AdminView: React.FC<AdminViewProps> = ({
           >
             <History className="w-4 h-4" />
             <span>Registros de Auditoria ({auditLogs.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('database')}
+            className={`pb-3 border-b-2 flex items-center gap-2 transition-colors shrink-0 cursor-pointer ${
+              activeTab === 'database'
+                ? 'border-[#1877F2] text-[#1877F2]'
+                : 'border-transparent text-neutral-500 hover:text-neutral-900'
+            }`}
+          >
+            <Database className="w-4 h-4" />
+            <span>Banco de Dados & SQL</span>
+            <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.2 rounded">Ativo</span>
           </button>
         </div>
       </div>
@@ -529,6 +556,171 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+
+        </div>
+      )}
+
+      {/* ABA 4: BANCO DE DADOS & SQL MIGRATION */}
+      {activeTab === 'database' && (
+        <div className="space-y-6">
+          
+          {/* CARD DE STATUS DA CONEXÃO */}
+          <div className="bg-white rounded-xl border border-neutral-200 p-5 shadow-xs">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-neutral-100">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-blue-50 text-[#1877F2] rounded-xl border border-blue-200">
+                  <Database className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-neutral-900">
+                    Supabase PostgreSQL & Storage Oficial
+                  </h3>
+                  <p className="text-xs text-neutral-500">
+                    Instância conectada e pronta para persistência dos dados do Los Motokas MC
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  Instância Ativa (200 OK)
+                </span>
+                {onOpenConfig && (
+                  <button
+                    onClick={onOpenConfig}
+                    className="px-3 py-1 text-xs font-semibold text-[#1877F2] bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors"
+                  >
+                    Credenciais
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4 text-xs">
+              <div className="p-3 bg-neutral-50 rounded-lg border border-neutral-200 space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block">
+                  Project URL (VITE_SUPABASE_URL)
+                </span>
+                <span className="font-mono text-neutral-800 break-all select-all font-semibold block">
+                  {config.url}
+                </span>
+              </div>
+              <div className="p-3 bg-neutral-50 rounded-lg border border-neutral-200 space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block">
+                  Anon Public Key
+                </span>
+                <span className="font-mono text-neutral-800 break-all select-all block truncate">
+                  {config.anonKey.slice(0, 36)}...{config.anonKey.slice(-16)}
+                </span>
+              </div>
+            </div>
+
+            {/* AÇÕES RÁPIDAS */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-4 mt-4 border-t border-neutral-100">
+              <div className="flex flex-wrap items-center gap-2">
+                <a
+                  href="https://supabase.com/dashboard/project/vqxocqqjzchpynrertcu/sql/new"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-4 py-2 bg-[#1877F2] hover:bg-[#0866FF] text-white text-xs font-bold rounded-lg shadow-xs flex items-center gap-2 transition-colors cursor-pointer"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  <span>Abrir SQL Editor no Supabase</span>
+                </a>
+
+                <button
+                  type="button"
+                  onClick={handleCopySql}
+                  className="px-4 py-2 bg-neutral-800 hover:bg-neutral-900 text-white text-xs font-bold rounded-lg shadow-xs flex items-center gap-2 transition-colors cursor-pointer"
+                >
+                  {copiedSql ? (
+                    <>
+                      <Check className="w-4 h-4 text-emerald-400" />
+                      <span>Script SQL Copiado!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4" />
+                      <span>Copiar Script SQL Completo</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <span className="text-[11px] text-neutral-500">
+                13 Tabelas + Bucket <code>motokas-media</code> + RLS
+              </span>
+            </div>
+          </div>
+
+          {/* PASSO A PASSO PARA EXECUTAR */}
+          <div className="bg-gradient-to-r from-blue-50/80 to-indigo-50/80 rounded-xl border border-blue-200 p-5 space-y-3">
+            <h4 className="font-bold text-xs uppercase tracking-wider text-[#1877F2] flex items-center gap-2">
+              <Terminal className="w-4 h-4" />
+              <span>Instruções para Execução do Script no Supabase</span>
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+              <div className="bg-white p-3 rounded-lg border border-blue-100 space-y-1">
+                <span className="w-5 h-5 rounded-full bg-[#1877F2] text-white font-bold text-[10px] flex items-center justify-center">1</span>
+                <span className="font-bold text-neutral-900 block">Abra o SQL Editor</span>
+                <span className="text-[11px] text-neutral-500 block leading-tight">
+                  Clique no botão azul acima para ir direto ao SQL Editor do seu projeto Supabase.
+                </span>
+              </div>
+              <div className="bg-white p-3 rounded-lg border border-blue-100 space-y-1">
+                <span className="w-5 h-5 rounded-full bg-[#1877F2] text-white font-bold text-[10px] flex items-center justify-center">2</span>
+                <span className="font-bold text-neutral-900 block">Cole o Script</span>
+                <span className="text-[11px] text-neutral-500 block leading-tight">
+                  Clique em "Copiar Script SQL Completo" e cole na janela de query do Supabase.
+                </span>
+              </div>
+              <div className="bg-white p-3 rounded-lg border border-blue-100 space-y-1">
+                <span className="w-5 h-5 rounded-full bg-[#1877F2] text-white font-bold text-[10px] flex items-center justify-center">3</span>
+                <span className="font-bold text-neutral-900 block">Clique em "Run"</span>
+                <span className="text-[11px] text-neutral-500 block leading-tight">
+                  Pressione o botão verde <b>RUN</b> (ou Ctrl+Enter) para criar as tabelas e permissões.
+                </span>
+              </div>
+              <div className="bg-white p-3 rounded-lg border border-blue-100 space-y-1">
+                <span className="w-5 h-5 rounded-full bg-emerald-600 text-white font-bold text-[10px] flex items-center justify-center">✓</span>
+                <span className="font-bold text-neutral-900 block">Pronto!</span>
+                <span className="text-[11px] text-neutral-500 block leading-tight">
+                  Todas as fotos, postagens, membros e o emblema serão sincronizados em tempo real.
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* PREVIEW DO CÓDIGO SQL */}
+          <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden shadow-xs">
+            <div className="bg-neutral-800 text-neutral-300 px-4 py-2.5 flex items-center justify-between text-xs border-b border-neutral-700">
+              <div className="flex items-center gap-2">
+                <Terminal className="w-4 h-4 text-emerald-400" />
+                <span className="font-mono font-bold text-neutral-200">losmotokas_supabase_migration.sql</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleCopySql}
+                className="text-xs text-neutral-200 hover:text-white bg-neutral-700 hover:bg-neutral-600 px-2.5 py-1 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                {copiedSql ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Copiado!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copiar SQL</span>
+                  </>
+                )}
+              </button>
+            </div>
+            <div className="p-4 bg-neutral-900 text-neutral-200 font-mono text-[11px] h-96 overflow-y-auto leading-relaxed select-all">
+              <pre className="whitespace-pre-wrap">{SUPABASE_SQL_MIGRATION}</pre>
             </div>
           </div>
 

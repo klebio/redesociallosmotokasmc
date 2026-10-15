@@ -255,30 +255,54 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </div>
                   </button>
 
-                  {/* 3. DIRETORIA */}
+                  {/* 3. DIRETORIA & SUPABASE */}
                   {isDiretoria ? (
-                    <button
-                      onClick={() => {
-                        onNavigate('admin');
-                        setShowSettingsDropdown(false);
-                      }}
-                      className={`w-full text-left px-3.5 py-2.5 text-xs hover:bg-neutral-100 flex items-center gap-3 transition-colors cursor-pointer ${
-                        currentTab === 'admin' ? 'bg-amber-50 text-amber-900 font-bold' : 'text-neutral-700'
-                      }`}
-                    >
-                      <div className="p-2 rounded-lg bg-amber-100 text-amber-800 shrink-0">
-                        <ShieldCheck className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-neutral-900 block text-xs">Diretoria</span>
-                          <span className="text-[9px] bg-red-600 text-white px-1.5 py-0.2 rounded font-bold">ADMIN</span>
+                    <>
+                      <button
+                        onClick={() => {
+                          onNavigate('admin');
+                          setShowSettingsDropdown(false);
+                        }}
+                        className={`w-full text-left px-3.5 py-2.5 text-xs hover:bg-neutral-100 flex items-center gap-3 transition-colors cursor-pointer ${
+                          currentTab === 'admin' ? 'bg-amber-50 text-amber-900 font-bold' : 'text-neutral-700'
+                        }`}
+                      >
+                        <div className="p-2 rounded-lg bg-amber-100 text-amber-800 shrink-0">
+                          <ShieldCheck className="w-4 h-4" />
                         </div>
-                        <span className="text-[11px] text-neutral-500 font-normal block leading-tight">
-                          Gabinete e gestão de patentes
-                        </span>
-                      </div>
-                    </button>
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-neutral-900 block text-xs">Diretoria</span>
+                            <span className="text-[9px] bg-red-600 text-white px-1.5 py-0.2 rounded font-bold">ADMIN</span>
+                          </div>
+                          <span className="text-[11px] text-neutral-500 font-normal block leading-tight">
+                            Gabinete e gestão de patentes
+                          </span>
+                        </div>
+                      </button>
+
+                      {/* BANCO DE DADOS & SQL (DIRETORIA) */}
+                      <button
+                        onClick={() => {
+                          onOpenConfig();
+                          setShowSettingsDropdown(false);
+                        }}
+                        className="w-full text-left px-3.5 py-2 text-xs hover:bg-blue-50/70 flex items-center gap-3 transition-colors cursor-pointer text-neutral-700 border-t border-neutral-100 mt-0.5"
+                      >
+                        <div className="p-2 rounded-lg bg-blue-100 text-[#1877F2] shrink-0">
+                          <Database className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-neutral-900 block text-xs">Supabase & SQL</span>
+                            <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.2 rounded">Conectado</span>
+                          </div>
+                          <span className="text-[11px] text-neutral-500 font-normal block leading-tight truncate">
+                            Status do banco e script de migração
+                          </span>
+                        </div>
+                      </button>
+                    </>
                   ) : (
                     <div className="px-3.5 py-2 text-[11px] text-neutral-400 italic flex items-center gap-2 border-t border-neutral-100 mt-1">
                       <Shield className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
@@ -701,19 +725,33 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </button>
 
                   {isDiretoria ? (
-                    <button
-                      onClick={() => {
-                        onNavigate('admin');
-                        setMobileMenuOpen(false);
-                      }}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-lg font-bold transition-colors text-left ${
-                        currentTab === 'admin' ? 'bg-amber-400 text-neutral-900 shadow-sm' : 'bg-amber-400/20 text-amber-200 hover:bg-amber-400/30'
-                      }`}
-                    >
-                      <ShieldCheck className="w-4 h-4 shrink-0 text-amber-300" />
-                      <span>Diretoria</span>
-                      <span className="text-[9px] bg-red-600 text-white px-1.5 rounded font-mono ml-auto">ADMIN</span>
-                    </button>
+                    <>
+                      <button
+                        onClick={() => {
+                          onNavigate('admin');
+                          setMobileMenuOpen(false);
+                        }}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg font-bold transition-colors text-left ${
+                          currentTab === 'admin' ? 'bg-amber-400 text-neutral-900 shadow-sm' : 'bg-amber-400/20 text-amber-200 hover:bg-amber-400/30'
+                        }`}
+                      >
+                        <ShieldCheck className="w-4 h-4 shrink-0 text-amber-300" />
+                        <span>Diretoria</span>
+                        <span className="text-[9px] bg-red-600 text-white px-1.5 rounded font-mono ml-auto">ADMIN</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          onOpenConfig();
+                          setMobileMenuOpen(false);
+                        }}
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg font-bold transition-colors text-left bg-blue-700/60 text-white hover:bg-blue-700"
+                      >
+                        <Database className="w-4 h-4 shrink-0 text-blue-200" />
+                        <span>Supabase & SQL</span>
+                        <span className="text-[9px] bg-emerald-500 text-white px-1.5 rounded font-mono ml-auto">OK</span>
+                      </button>
+                    </>
                   ) : null}
                 </div>
               </div>

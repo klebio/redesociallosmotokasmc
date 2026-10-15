@@ -135,6 +135,7 @@ export default function App() {
           <AdminView
             currentUser={currentUser}
             onNavigateToProfile={handleOpenProfile}
+            onOpenConfig={() => setIsConfigModalOpen(true)}
           />
         )}
 

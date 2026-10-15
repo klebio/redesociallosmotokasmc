@@ -311,22 +311,33 @@ export const SupabaseConfigModal: React.FC<SupabaseConfigModalProps> = ({
                     Copie e cole este script no <b>SQL Editor</b> do seu projeto no Supabase e clique em <b>Run</b>.
                   </p>
                 </div>
-                <button
-                  onClick={handleCopySql}
-                  className="px-3 py-1.5 text-xs font-bold text-white bg-[#1877F2] hover:bg-[#0866FF] rounded-lg flex items-center gap-1.5 transition-colors shadow-sm"
-                >
-                  {copiedSql ? (
-                    <>
-                      <Check className="w-3.5 h-3.5" />
-                      Copiado!
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5" />
-                      Copiar Script SQL
-                    </>
-                  )}
-                </button>
+                <div className="flex items-center gap-2">
+                  <a
+                    href="https://supabase.com/dashboard/project/vqxocqqjzchpynrertcu/sql/new"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3 py-1.5 text-xs font-semibold text-[#1877F2] bg-blue-50 hover:bg-blue-100 rounded-lg flex items-center gap-1.5 transition-colors border border-blue-200"
+                  >
+                    <span>Abrir SQL Editor no Supabase</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                  <button
+                    onClick={handleCopySql}
+                    className="px-3.5 py-1.5 text-xs font-bold text-white bg-[#1877F2] hover:bg-[#0866FF] rounded-lg flex items-center gap-1.5 transition-colors shadow-sm"
+                  >
+                    {copiedSql ? (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        Copiado!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        Copiar Script SQL
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
 
               <div className="bg-neutral-900 rounded-lg p-3 text-neutral-300 font-mono text-[11px] h-64 overflow-y-auto overflow-x-auto max-w-full leading-relaxed border border-neutral-800 select-all">
