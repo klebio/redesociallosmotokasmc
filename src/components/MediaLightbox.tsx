@@ -57,20 +57,25 @@ export const MediaLightbox: React.FC<MediaLightboxProps> = ({
       {/* CONTEÚDO */}
       <div className="max-w-5xl max-h-[90vh] flex flex-col items-center justify-center">
         {mediaType === 'video' ? (
-          <video
-            src={mediaUrl}
-            controls
-            autoPlay
-            className="max-h-[80vh] max-w-full rounded-lg shadow-2xl"
-          />
-        ) : (
+          mediaUrl && mediaUrl.trim() !== '' ? (
+            <video
+              src={mediaUrl}
+              controls
+              autoPlay
+              className="max-h-[80vh] max-w-full rounded-lg shadow-2xl"
+            />
+          ) : null
+        ) : mediaUrl && mediaUrl.trim() !== '' ? (
           <img
             src={mediaUrl}
             alt={caption || 'Mídia da Irmandade'}
             className="max-h-[80vh] max-w-full object-contain rounded-lg shadow-2xl"
             referrerPolicy="no-referrer"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = '/escudo_oficial.jpg';
+            }}
           />
-        )}
+        ) : null}
 
         {caption && (
           <p className="mt-3 text-white/90 text-sm font-medium text-center bg-black/60 px-4 py-1.5 rounded-full backdrop-blur-sm">

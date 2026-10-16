@@ -57,25 +57,97 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const handleAvatarFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const isGif = file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif');
     const reader = new FileReader();
     reader.onload = (event) => {
-      if (event.target?.result) {
-        setEditAvatarUrl(event.target.result as string);
+      const src = event.target?.result as string;
+      if (!src) return;
+
+      if (isGif) {
+        setEditAvatarUrl(src);
+        return;
       }
+
+      const img = new window.Image();
+      img.onload = () => {
+        const MAX_DIM = 500;
+        let { width, height } = img;
+        if (width > height) {
+          if (width > MAX_DIM) {
+            height = Math.round((height * MAX_DIM) / width);
+            width = MAX_DIM;
+          }
+        } else {
+          if (height > MAX_DIM) {
+            width = Math.round((width * MAX_DIM) / height);
+            height = MAX_DIM;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          setEditAvatarUrl(canvas.toDataURL('image/jpeg', 0.88));
+        } else {
+          setEditAvatarUrl(src);
+        }
+      };
+      img.onerror = () => setEditAvatarUrl(src);
+      img.src = src;
     };
     reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   const handleCoverFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const isGif = file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif');
     const reader = new FileReader();
     reader.onload = (event) => {
-      if (event.target?.result) {
-        setEditCoverUrl(event.target.result as string);
+      const src = event.target?.result as string;
+      if (!src) return;
+
+      if (isGif) {
+        setEditCoverUrl(src);
+        return;
       }
+
+      const img = new window.Image();
+      img.onload = () => {
+        const MAX_DIM = 1200;
+        let { width, height } = img;
+        if (width > height) {
+          if (width > MAX_DIM) {
+            height = Math.round((height * MAX_DIM) / width);
+            width = MAX_DIM;
+          }
+        } else {
+          if (height > MAX_DIM) {
+            width = Math.round((width * MAX_DIM) / height);
+            height = MAX_DIM;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          setEditCoverUrl(canvas.toDataURL('image/jpeg', 0.85));
+        } else {
+          setEditCoverUrl(src);
+        }
+      };
+      img.onerror = () => setEditCoverUrl(src);
+      img.src = src;
     };
     reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   const memberPosts = store.getPosts().filter((p) => p.author_id === targetId);
@@ -128,10 +200,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         {/* FOTO DE CAPA RESPONSIVA */}
         <div className="h-44 sm:h-64 bg-neutral-900 relative">
           <img
-            src={member.cover_url || '/src/assets/images/motokas_road_trip_1791830557313.jpg'}
+            src={member.cover_url || '/motokas_road_trip_1791830557313.jpg'}
             alt="Capa do perfil"
             className="w-full h-full object-cover"
             referrerPolicy="no-referrer"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = '/escudo_oficial.jpg';
+            }}
           />
           {canEdit && (
             <button
@@ -156,6 +231,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 alt={member.nickname}
                 className="w-full h-full object-cover rounded-full"
                 referrerPolicy="no-referrer"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300';
+                }}
               />
               {canEdit && (
                 <button
@@ -292,13 +370,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             </p>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {memberMedia.map((m, idx) => (
+              {memberMedia.filter((m) => Boolean(m?.url && m.url.trim() !== '')).map((m, idx) => (
                 <div key={idx} className="aspect-square bg-neutral-900 rounded-lg overflow-hidden border border-neutral-200">
                   <img
-                    src={m.url}
+                    src={m.url || '/escudo_oficial.jpg'}
                     alt={m.caption || 'Foto'}
                     className="w-full h-full object-cover hover:scale-105 transition-transform"
                     referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = '/escudo_oficial.jpg';
+                    }}
                   />
                 </div>
               ))}
@@ -504,9 +585,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 <label className="block font-bold text-neutral-800">Foto de Perfil (Avatar)</label>
                 <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3">
                   <img
-                    src={editAvatarUrl}
+                    src={editAvatarUrl || member.avatar_url || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300'}
                     alt="Prévia Avatar"
                     className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-sm shrink-0"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300';
+                    }}
                   />
                   <div className="w-full flex-1 space-y-2">
                     <label className="w-full py-2.5 px-3 bg-white border border-neutral-300 hover:border-[#1877F2] rounded-lg font-bold text-neutral-700 hover:bg-neutral-50 cursor-pointer flex items-center justify-center gap-2 transition-colors text-xs active:scale-[0.99] shadow-2xs">
@@ -514,7 +598,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       <span>Carregar Foto do Celular</span>
                       <input
                         type="file"
-                        accept="image/*"
+                        accept="image/*,image/gif,.gif"
                         onChange={handleAvatarFile}
                         className="hidden"
                       />
@@ -535,9 +619,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 <label className="block font-bold text-neutral-800">Foto de Capa</label>
                 <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3">
                   <img
-                    src={editCoverUrl}
+                    src={editCoverUrl || member.cover_url || '/motokas_road_trip_1791830557313.jpg'}
                     alt="Prévia Capa"
                     className="w-full sm:w-28 h-20 sm:h-16 rounded-lg object-cover border border-neutral-300 shrink-0"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = '/escudo_oficial.jpg';
+                    }}
                   />
                   <div className="w-full flex-1 space-y-2">
                     <div className="flex flex-col sm:flex-row gap-1.5">
@@ -546,7 +633,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         <span>Carregar do Celular</span>
                         <input
                           type="file"
-                          accept="image/*"
+                          accept="image/*,image/gif,.gif"
                           onChange={handleCoverFile}
                           className="hidden"
                         />

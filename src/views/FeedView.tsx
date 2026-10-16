@@ -69,10 +69,13 @@ export const FeedView: React.FC<FeedViewProps> = ({
             <div className="px-4 pb-4 -mt-9 text-center">
               <div className="w-18 h-18 mx-auto rounded-full bg-white p-1 shadow-md border border-neutral-100 overflow-hidden mb-2">
                 <img
-                  src={officialEmblem}
+                  src={officialEmblem || '/escudo_oficial.jpg'}
                   alt="Escudo Oficial LOSMOTOKAS MC - Nossa História"
                   className="w-full h-full object-cover rounded-full"
                   referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/escudo_oficial.jpg';
+                  }}
                 />
               </div>
               <h3 className="font-extrabold text-neutral-900 text-base font-['Plus_Jakarta_Sans'] leading-tight">
@@ -289,6 +292,9 @@ export const FeedView: React.FC<FeedViewProps> = ({
                       src={m.avatar_url || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100'}
                       alt={m.nickname}
                       className="w-8 h-8 rounded-full object-cover shrink-0 border border-neutral-200"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100';
+                      }}
                     />
                     <div className="overflow-hidden">
                       <span className="text-xs font-bold text-neutral-800 block truncate">

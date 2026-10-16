@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Users, Search, Shield, Award, Calendar, Compass, ChevronRight, UserPlus, Copy, Check 
+  Users, Search, Shield, Award, Calendar, Compass, ChevronRight, UserPlus, Copy, Check, Share2 
 } from 'lucide-react';
 import { Profile } from '../types/database';
 import { store } from '../services/store';
@@ -57,9 +57,38 @@ export const MembersView: React.FC<MembersViewProps> = ({
             <h2 className="text-xl font-bold text-neutral-900 font-['Plus_Jakarta_Sans']">
               Irmãos do Los Motokas MC
             </h2>
-            <p className="text-xs text-neutral-500">
+            <p className="text-xs text-neutral-500 mb-2 sm:mb-0">
               Integrantes autorizados com colete e escudo da irmandade.
             </p>
+            <div className="flex items-center gap-2 mt-2">
+              <button
+                onClick={handleCopyInvite}
+                className="px-2.5 py-1.5 bg-[#1877F2] hover:bg-[#0866FF] text-white text-xs font-bold rounded-lg shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Copiar link de convite oficial"
+              >
+                {copiedLink ? (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Copiado!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copiar Convite</span>
+                  </>
+                )}
+              </button>
+              <a
+                href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`Irmão, aqui está o seu convite oficial para criar seu perfil na rede social exclusiva do Los Motokas MC (Mossoró/RN): ${inviteUrl}`)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-xs flex items-center gap-1.5 transition-colors"
+                title="Convidar irmão pelo WhatsApp"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                <span>WhatsApp</span>
+              </a>
+            </div>
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2 bg-neutral-100 p-1 rounded-lg text-xs font-semibold overflow-x-auto scrollbar-none max-w-full w-full md:w-auto">
@@ -158,10 +187,13 @@ export const MembersView: React.FC<MembersViewProps> = ({
               {/* CAPA DE FUNDO */}
               <div className="h-20 bg-neutral-900 relative">
                 <img
-                  src={member.cover_url || '/src/assets/images/motokas_road_trip_1791830557313.jpg'}
+                  src={member.cover_url || '/motokas_road_trip_1791830557313.jpg'}
                   alt="Capa"
                   className="w-full h-full object-cover opacity-60"
                   referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/escudo_oficial.jpg';
+                  }}
                 />
                 <div className="absolute top-2 right-2">
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded shadow-xs ${
@@ -190,6 +222,9 @@ export const MembersView: React.FC<MembersViewProps> = ({
                     alt={member.nickname}
                     className="w-full h-full object-cover rounded-full"
                     referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200';
+                    }}
                   />
                 </div>
 

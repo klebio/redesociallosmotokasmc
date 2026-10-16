@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { 
-  Image, Video, Send, X, Shield, Lock, Globe, Loader2, Sparkles 
+  Image as ImageIcon, Video, Send, X, Shield, Lock, Globe, Loader2, Sparkles 
 } from 'lucide-react';
 import { store } from '../services/store';
 import { Profile } from '../types/database';
@@ -42,21 +42,58 @@ export const FeedComposer: React.FC<FeedComposerProps> = ({
     }, 300);
   };
 
-  // Simulação e seleção de upload de arquivos (aceita arquivos reais ou imagens da irmandade)
+  // Upload real de fotos e vídeos dos membros para o banco de dados
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
+      const isGif = file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif');
+      const isVideo = file.type.startsWith('video/') || file.name.toLowerCase().endsWith('.mp4');
+
       const reader = new FileReader();
       reader.onload = (event) => {
-        if (event.target?.result) {
-          setMediaUrls((prev) => [...prev, event.target!.result as string]);
+        const src = event.target?.result as string;
+        if (!src) return;
+
+        if (isGif || isVideo) {
+          setMediaUrls((prev) => [...prev, src]);
+          return;
         }
+
+        const img = new Image();
+        img.onload = () => {
+          const MAX_DIM = 1200;
+          let { width, height } = img;
+          if (width > height) {
+            if (width > MAX_DIM) {
+              height = Math.round((height * MAX_DIM) / width);
+              width = MAX_DIM;
+            }
+          } else {
+            if (height > MAX_DIM) {
+              width = Math.round((width * MAX_DIM) / height);
+              height = MAX_DIM;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            setMediaUrls((prev) => [...prev, canvas.toDataURL('image/jpeg', 0.85)]);
+          } else {
+            setMediaUrls((prev) => [...prev, src]);
+          }
+        };
+        img.onerror = () => setMediaUrls((prev) => [...prev, src]);
+        img.src = src;
       };
       reader.readAsDataURL(file);
     }
+    e.target.value = '';
   };
 
   const handleAddSampleRoadPhoto = () => {
@@ -78,6 +115,9 @@ export const FeedComposer: React.FC<FeedComposerProps> = ({
           src={currentUser?.avatar_url || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100'}
           alt={currentUser?.nickname || 'Membro'}
           className="w-10 h-10 rounded-full object-cover shrink-0 border border-neutral-200"
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100';
+          }}
         />
         <div className="flex-1">
           <form onSubmit={handleCreatePost}>
@@ -92,13 +132,16 @@ export const FeedComposer: React.FC<FeedComposerProps> = ({
             {/* PRÉ-VISUALIZAÇÃO DE MÍDIAS ANEXADAS */}
             {mediaUrls.length > 0 && (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 my-2 p-2 bg-neutral-50 rounded-lg border border-neutral-200">
-                {mediaUrls.map((url, idx) => (
+                {mediaUrls.filter((url) => Boolean(url && url.trim() !== '')).map((url, idx) => (
                   <div key={idx} className="relative group aspect-video rounded-md overflow-hidden bg-neutral-900">
                     <img
-                      src={url}
+                      src={url || '/escudo_oficial.jpg'}
                       alt={`Anexo ${idx + 1}`}
                       className="w-full h-full object-cover"
                       referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '/escudo_oficial.jpg';
+                      }}
                     />
                     <button
                       type="button"
@@ -117,7 +160,7 @@ export const FeedComposer: React.FC<FeedComposerProps> = ({
                 
                 {/* BOTÃO ADICIONAR FOTO / VÍDEO DO DISPOSITIVO */}
                 <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-neutral-600 hover:bg-neutral-100 cursor-pointer transition-colors">
-                  <Image className="w-4 h-4 text-emerald-600" />
+                  <ImageIcon className="w-4 h-4 text-emerald-600" />
                   <span>Foto / Vídeo</span>
                   <input
                     type="file"

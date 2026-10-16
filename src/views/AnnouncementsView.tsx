@@ -139,6 +139,9 @@ export const AnnouncementsView: React.FC<AnnouncementsViewProps> = ({
                       src={ann.author?.avatar_url || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100'}
                       alt={ann.author?.nickname || 'Diretoria'}
                       className="w-5 h-5 rounded-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100';
+                      }}
                     />
                     <span>Emitido por: <b>{ann.author?.nickname || 'Diretoria'}</b></span>
                   </div>

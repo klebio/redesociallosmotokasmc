@@ -97,7 +97,7 @@ export const PostCard: React.FC<PostCardProps> = ({
     }
   };
 
-  const mediaList = post.media || [];
+  const mediaList = (post.media || []).filter((m) => Boolean(m?.url));
 
   return (
     <>
@@ -198,16 +198,21 @@ export const PostCard: React.FC<PostCardProps> = ({
                 className="relative cursor-pointer group overflow-hidden max-h-[480px] flex items-center justify-center bg-black"
               >
                 {media.media_type === 'video' ? (
-                  <video
-                    src={media.url}
-                    className="w-full h-full object-cover group-hover:scale-101 transition-transform"
-                  />
+                  media.url && media.url.trim() !== '' ? (
+                    <video
+                      src={media.url}
+                      className="w-full h-full object-cover group-hover:scale-101 transition-transform"
+                    />
+                  ) : null
                 ) : (
                   <img
-                    src={media.url}
+                    src={media.url || '/escudo_oficial.jpg'}
                     alt={media.caption || 'Foto da publicação'}
                     className="w-full h-full object-cover group-hover:opacity-95 transition-opacity"
                     referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = '/escudo_oficial.jpg';
+                    }}
                   />
                 )}
                 {media.caption && (

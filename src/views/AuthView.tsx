@@ -80,6 +80,9 @@ export const AuthView: React.FC<AuthViewProps> = ({
 
   // Detecta se a página foi aberta com link de convite / cadastro e sincroniza emblema
   useEffect(() => {
+    // Sincroniza configurações e dados do Supabase para garantir que o emblema oficial venha da nuvem
+    store.hydrateFromSupabase();
+
     const unsub = store.subscribe(() => {
       setOfficialEmblem(store.getOfficialEmblem());
     });
@@ -94,38 +97,109 @@ export const AuthView: React.FC<AuthViewProps> = ({
 
     if (hasInvite) {
       setIsInviteDetected(true);
-      if (params.get('cadastro')) {
-        setMode('register');
-      }
+      // Ao abrir o link de convite do WhatsApp, abre diretamente o formulário para o irmão criar seu perfil
+      setMode('register');
     }
 
     return unsub;
   }, []);
 
-  // Upload local de imagem para avatar
+  // Upload local de imagem para avatar do membro com otimização
   const handleAvatarFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const isGif = file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif');
     const reader = new FileReader();
     reader.onload = (event) => {
-      if (event.target?.result) {
-        setRegAvatarUrl(event.target.result as string);
+      const src = event.target?.result as string;
+      if (!src) return;
+
+      if (isGif) {
+        setRegAvatarUrl(src);
+        return;
       }
+
+      const img = new Image();
+      img.onload = () => {
+        const MAX_DIM = 500;
+        let { width, height } = img;
+        if (width > height) {
+          if (width > MAX_DIM) {
+            height = Math.round((height * MAX_DIM) / width);
+            width = MAX_DIM;
+          }
+        } else {
+          if (height > MAX_DIM) {
+            width = Math.round((width * MAX_DIM) / height);
+            height = MAX_DIM;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          setRegAvatarUrl(canvas.toDataURL('image/jpeg', 0.88));
+        } else {
+          setRegAvatarUrl(src);
+        }
+      };
+      img.onerror = () => setRegAvatarUrl(src);
+      img.src = src;
     };
     reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
-  // Upload local de imagem para capa
+  // Upload local de imagem para capa do perfil com otimização
   const handleCoverFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const isGif = file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif');
     const reader = new FileReader();
     reader.onload = (event) => {
-      if (event.target?.result) {
-        setRegCoverUrl(event.target.result as string);
+      const src = event.target?.result as string;
+      if (!src) return;
+
+      if (isGif) {
+        setRegCoverUrl(src);
+        return;
       }
+
+      const img = new Image();
+      img.onload = () => {
+        const MAX_DIM = 1200;
+        let { width, height } = img;
+        if (width > height) {
+          if (width > MAX_DIM) {
+            height = Math.round((height * MAX_DIM) / width);
+            width = MAX_DIM;
+          }
+        } else {
+          if (height > MAX_DIM) {
+            width = Math.round((width * MAX_DIM) / height);
+            height = MAX_DIM;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          setRegCoverUrl(canvas.toDataURL('image/jpeg', 0.85));
+        } else {
+          setRegCoverUrl(src);
+        }
+      };
+      img.onerror = () => setRegCoverUrl(src);
+      img.src = src;
     };
     reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   // FLUXO DE LOGIN
@@ -392,10 +466,13 @@ export const AuthView: React.FC<AuthViewProps> = ({
               {/* ESCUDO OFICIAL */}
               <div className="w-24 h-24 rounded-full bg-white p-1.5 shadow-lg border-2 border-[#1877F2]/25 overflow-hidden mx-auto hover:scale-105 transition-transform">
                 <img
-                  src={officialEmblem}
+                  src={officialEmblem || '/escudo_oficial.jpg'}
                   alt="Escudo Oficial Los Motokas MC"
                   className="w-full h-full object-cover rounded-full"
                   referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/escudo_oficial.jpg';
+                  }}
                 />
               </div>
 
@@ -503,9 +580,12 @@ export const AuthView: React.FC<AuthViewProps> = ({
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded-full overflow-hidden border border-neutral-200">
                     <img
-                      src={officialEmblem}
+                      src={officialEmblem || '/escudo_oficial.jpg'}
                       alt="Escudo"
                       className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '/escudo_oficial.jpg';
+                      }}
                     />
                   </div>
                   <span className="font-extrabold text-xs sm:text-sm text-neutral-800 font-['Plus_Jakarta_Sans']">
@@ -759,9 +839,12 @@ export const AuthView: React.FC<AuthViewProps> = ({
                       </div>
                       <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3.5">
                         <img
-                          src={regAvatarUrl}
+                          src={regAvatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=300&auto=format&fit=crop&q=80'}
                           alt="Prévia Avatar"
                           className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-md shrink-0"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=300&auto=format&fit=crop&q=80';
+                          }}
                         />
                         <div className="w-full flex-1 space-y-2">
                           <label className="w-full py-2.5 px-3 bg-white border border-neutral-300 hover:border-[#1877F2] rounded-lg font-bold text-neutral-700 hover:bg-neutral-50 cursor-pointer flex items-center justify-center gap-2 transition-colors text-xs active:scale-[0.99] shadow-2xs">
@@ -769,7 +852,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
                             <span>Tirar ou Carregar Foto do Celular</span>
                             <input
                               type="file"
-                              accept="image/*"
+                              accept="image/*,image/gif,.gif"
                               onChange={handleAvatarFile}
                               className="hidden"
                             />

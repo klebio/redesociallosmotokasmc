@@ -101,10 +101,13 @@ export const AlbumsView: React.FC<AlbumsViewProps> = ({
             <div className="flex flex-col md:flex-row gap-6 items-start">
               <div className="w-full md:w-64 aspect-video rounded-lg overflow-hidden bg-neutral-900 shrink-0">
                 <img
-                  src={selectedAlbum.cover_url || '/src/assets/images/motokas_road_trip_1791830557313.jpg'}
+                  src={selectedAlbum.cover_url || '/escudo_oficial.jpg'}
                   alt={selectedAlbum.title}
                   className="w-full h-full object-cover"
                   referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/escudo_oficial.jpg';
+                  }}
                 />
               </div>
 
@@ -162,25 +165,30 @@ export const AlbumsView: React.FC<AlbumsViewProps> = ({
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                {albumMediaList.map((media, idx) => (
-                  <div
-                    key={media.id || idx}
-                    onClick={() => setLightboxIndex(idx)}
-                    className="aspect-square bg-neutral-900 rounded-lg overflow-hidden relative group cursor-pointer border border-neutral-200"
-                  >
-                    <img
-                      src={media.url}
-                      alt={media.caption || 'Foto do álbum'}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      referrerPolicy="no-referrer"
-                    />
-                    {media.caption && (
-                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent p-2 text-white text-[11px] truncate">
-                        {media.caption}
-                      </div>
-                    )}
-                  </div>
-                ))}
+                {albumMediaList
+                  .filter((media) => Boolean(media && media.url && media.url.trim() !== ''))
+                  .map((media, idx) => (
+                    <div
+                      key={media.id || idx}
+                      onClick={() => setLightboxIndex(idx)}
+                      className="aspect-square bg-neutral-900 rounded-lg overflow-hidden relative group cursor-pointer border border-neutral-200"
+                    >
+                      <img
+                        src={media.url || '/escudo_oficial.jpg'}
+                        alt={media.caption || 'Foto do álbum'}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = '/escudo_oficial.jpg';
+                        }}
+                      />
+                      {media.caption && (
+                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent p-2 text-white text-[11px] truncate">
+                          {media.caption}
+                        </div>
+                      )}
+                    </div>
+                  ))}
               </div>
             )}
           </div>
@@ -217,10 +225,13 @@ export const AlbumsView: React.FC<AlbumsViewProps> = ({
               >
                 <div className="aspect-video bg-neutral-900 overflow-hidden relative">
                   <img
-                    src={album.cover_url || '/src/assets/images/motokas_road_trip_1791830557313.jpg'}
+                    src={album.cover_url || '/escudo_oficial.jpg'}
                     alt={album.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = '/escudo_oficial.jpg';
+                    }}
                   />
                   <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-0.5 rounded">
                     {album.category}

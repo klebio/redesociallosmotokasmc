@@ -13,7 +13,7 @@ const STORAGE_PREFIX = 'los_motokas_state_';
 
 function loadOr<T>(key: string, defaultValue: T): T {
   try {
-    const raw = localStorage.getItem(STORAGE_PREFIX + key);
+    const raw = localStorage.getItem(STORAGE_PREFIX + key) || sessionStorage.getItem(STORAGE_PREFIX + key);
     if (!raw) return defaultValue;
     return JSON.parse(raw);
   } catch {
@@ -25,16 +25,27 @@ function save<T>(key: string, value: T): void {
   try {
     localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(value));
   } catch (e) {
-    console.warn('Storage limit or error', e);
+    console.warn('LocalStorage atingiu o limite de quota, usando sessionStorage como fallback:', e);
+    try {
+      sessionStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(value));
+    } catch (errSession) {
+      console.warn('Storage fallback warning:', errSession);
+    }
   }
 }
 
-const DEFAULT_OFFICIAL_EMBLEM = '/src/assets/images/escudo_oficial.jpg';
+const DEFAULT_OFFICIAL_EMBLEM = '/escudo_oficial.jpg';
 
 // Estado reativo da aplicação (Apenas dados e membros reais)
 class DataStore {
   private currentUserId: string = loadOr('currentUserId', '');
-  private officialEmblem: string = loadOr('officialEmblem', DEFAULT_OFFICIAL_EMBLEM);
+  private officialEmblem: string = (() => {
+    const saved = loadOr<string>('officialEmblem', DEFAULT_OFFICIAL_EMBLEM);
+    if (!saved || (saved as string) === '/src/assets/images/escudo_oficial.jpg') {
+      return DEFAULT_OFFICIAL_EMBLEM;
+    }
+    return saved;
+  })();
   private members: Profile[] = loadOr('members', INITIAL_MEMBERS);
   private posts: Post[] = loadOr('posts', INITIAL_POSTS);
   private albums: Album[] = loadOr('albums', INITIAL_ALBUMS);
@@ -189,7 +200,15 @@ class DataStore {
           if (emblemSetting && emblemSetting.value) {
             this.officialEmblem = emblemSetting.value;
             save('officialEmblem', this.officialEmblem);
+            this.notify();
           }
+        } else if (this.officialEmblem && this.officialEmblem !== DEFAULT_OFFICIAL_EMBLEM) {
+          // Se o Supabase ainda não tem registro, sobe o emblema configurado localmente
+          await client.from('app_settings').upsert({
+            key: 'official_emblem',
+            value: this.officialEmblem,
+            updated_at: new Date().toISOString(),
+          });
         }
       } catch (err) {
         console.warn('Erro ao carregar app_settings do Supabase:', err);
@@ -259,9 +278,63 @@ class DataStore {
         save('requests', this.requests);
       }
 
+      // Inicia sincronização em tempo real via canais Postgres Changes
+      this.initRealtimeSubscription();
+
       this.notify();
     } catch (err) {
       console.warn('Aviso: Utilizando sincronização local enquanto Supabase é provisionado:', err);
+    }
+  }
+
+  private isRealtimeInitialized = false;
+
+  public initRealtimeSubscription() {
+    if (this.isRealtimeInitialized || !isSupabaseConfigured()) return;
+    const client = getSupabase();
+    if (!client) return;
+    this.isRealtimeInitialized = true;
+
+    try {
+      client
+        .channel('motokas-realtime-sync')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+          this.hydrateFromSupabase();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, () => {
+          this.hydrateFromSupabase();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'post_media' }, () => {
+          this.hydrateFromSupabase();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, () => {
+          this.hydrateFromSupabase();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'reactions' }, () => {
+          this.hydrateFromSupabase();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'albums' }, () => {
+          this.hydrateFromSupabase();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'album_media' }, () => {
+          this.hydrateFromSupabase();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, () => {
+          this.hydrateFromSupabase();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'app_settings' }, () => {
+          this.hydrateFromSupabase();
+        })
+        .subscribe();
+    } catch (err) {
+      console.warn('Realtime channel warning:', err);
+    }
+
+    // Polling contínuo de segurança a cada 6 segundos para garantir atualização em tempo real
+    if (typeof window !== 'undefined') {
+      setInterval(() => {
+        this.hydrateFromSupabase();
+      }, 6000);
     }
   }
 
@@ -357,7 +430,7 @@ class DataStore {
     if (isSupabaseConfigured()) {
       const client = getSupabase();
       if (client) {
-        client.from('profiles').update({
+        const payload: any = {
           nickname: updates.nickname,
           full_name: updates.full_name,
           bio: updates.bio,
@@ -365,7 +438,14 @@ class DataStore {
           phone: updates.phone,
           avatar_url: updates.avatar_url,
           cover_url: updates.cover_url,
-        }).eq('id', id).then(({ error }) => {
+        };
+        if (updates.password) payload.password = updates.password;
+        if (updates.birth_date) payload.birth_date = updates.birth_date;
+        if (updates.mother_name) payload.mother_name = updates.mother_name;
+        if (updates.role) payload.role = updates.role;
+        if (updates.status) payload.status = updates.status;
+
+        client.from('profiles').update(payload).eq('id', id).then(({ error }) => {
           if (error) console.warn('Erro ao sincronizar atualização de perfil no Supabase:', error);
         });
       }
@@ -430,7 +510,7 @@ class DataStore {
       const client = getSupabase();
       if (client) {
         try {
-          await client.from('profiles').upsert({
+          const { error: profileErr } = await client.from('profiles').upsert({
             id: newProfile.id,
             email: newProfile.email,
             full_name: newProfile.full_name,
@@ -439,10 +519,18 @@ class DataStore {
             status: 'active',
             motorcycle_model: newProfile.motorcycle_model,
             phone: newProfile.phone,
+            birth_date: newProfile.birth_date,
+            mother_name: newProfile.mother_name,
+            password: newProfile.password,
             bio: newProfile.bio,
             avatar_url: newProfile.avatar_url,
             cover_url: newProfile.cover_url,
+            joined_at: newProfile.joined_at,
+            created_at: newProfile.created_at,
           });
+          if (profileErr) {
+            console.error('Erro ao gravar perfil no Supabase:', profileErr);
+          }
         } catch (err) {
           console.warn('Erro ao inserir perfil no Supabase:', err);
         }

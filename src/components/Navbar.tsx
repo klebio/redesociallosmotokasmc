@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Bell, Shield, User, LogOut, Settings, 
   Database, Flame, ChevronDown, Check, Menu, X, UserPlus,
-  Home, Camera, Bookmark, Users, Megaphone, ShieldCheck, Upload
+  Home, Camera, Bookmark, Users, Megaphone, ShieldCheck, Upload, Share2
 } from 'lucide-react';
 import { store } from '../services/store';
 import { isSupabaseConfigured } from '../lib/supabase';
@@ -37,6 +37,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [officialEmblem, setOfficialEmblem] = useState<string>(store.getOfficialEmblem());
   const [showEmblemModal, setShowEmblemModal] = useState(false);
   const [newEmblemPreview, setNewEmblemPreview] = useState<string | null>(null);
+  const [isGifFile, setIsGifFile] = useState(false);
   const [emblemToast, setEmblemToast] = useState<string | null>(null);
   const emblemInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -54,12 +55,61 @@ export const Navbar: React.FC<NavbarProps> = ({
   const handleEmblemFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Detecta se o arquivo é um GIF animado
+    const isGif = file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif');
+    setIsGifFile(isGif);
+
     const reader = new FileReader();
     reader.onload = (event) => {
-      if (event.target?.result) {
-        setNewEmblemPreview(event.target.result as string);
+      const src = event.target?.result as string;
+      if (!src) return;
+
+      // CRUCIAL: Se for um GIF ANIMADO, NUNCA passar pelo canvas!
+      // O canvas dos navegadores congela GIFs em 1 frame estático.
+      // Lendo diretamente pelo FileReader, todos os frames, transparências e a animação do GIF são mantidos 100%!
+      if (isGif) {
+        setNewEmblemPreview(src);
         setShowEmblemModal(true);
+        return;
       }
+
+      // Se for JPG/PNG/WEBP estático, redimensiona via canvas para otimização
+      const img = new Image();
+      img.onload = () => {
+        const MAX_DIM = 600;
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+          if (width > MAX_DIM) {
+            height = Math.round((height * MAX_DIM) / width);
+            width = MAX_DIM;
+          }
+        } else {
+          if (height > MAX_DIM) {
+            width = Math.round((width * MAX_DIM) / height);
+            height = MAX_DIM;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const optimizedDataUrl = canvas.toDataURL('image/jpeg', 0.9);
+          setNewEmblemPreview(optimizedDataUrl);
+        } else {
+          setNewEmblemPreview(src);
+        }
+        setShowEmblemModal(true);
+      };
+      img.onerror = () => {
+        setNewEmblemPreview(src);
+        setShowEmblemModal(true);
+      };
+      img.src = src;
     };
     reader.readAsDataURL(file);
     e.target.value = '';
@@ -71,7 +121,11 @@ export const Navbar: React.FC<NavbarProps> = ({
       setOfficialEmblem(newEmblemPreview);
       setShowEmblemModal(false);
       setNewEmblemPreview(null);
-      setEmblemToast('Emblema oficial atualizado e salvo com sucesso!');
+      setEmblemToast(
+        isGifFile 
+          ? 'Emblema Oficial em GIF Animado salvo e sincronizado no Supabase!' 
+          : 'Emblema oficial atualizado e salvo no Supabase com sucesso!'
+      );
       setTimeout(() => setEmblemToast(null), 4000);
     }
   };
@@ -109,7 +163,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <input 
             type="file" 
             ref={emblemInputRef} 
-            accept="image/*" 
+            accept="image/*,image/gif,.gif" 
             className="hidden" 
             onChange={handleEmblemFileChange} 
           />
@@ -123,10 +177,13 @@ export const Navbar: React.FC<NavbarProps> = ({
               title="Clique para enviar ou trocar o emblema oficial do seu PC"
             >
               <img 
-                src={officialEmblem} 
+                src={officialEmblem || '/escudo_oficial.jpg'} 
                 alt="Emblema Oficial Los Motokas MC" 
                 className="w-full h-full object-cover rounded-full"
                 referrerPolicy="no-referrer"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '/escudo_oficial.jpg';
+                }}
               />
               {/* Overlay hover com ícone de câmera */}
               <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
@@ -502,6 +559,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                 src={currentUser?.avatar_url || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100'}
                 alt={currentUser?.nickname || 'Membro'}
                 className="w-8 h-8 rounded-full object-cover border border-white/40"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100';
+                }}
               />
               <span className="hidden md:inline text-xs font-bold">
                 {currentUser?.nickname || 'Irmão'}
@@ -517,6 +577,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                     src={currentUser?.avatar_url || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100'}
                     alt={currentUser?.nickname}
                     className="w-10 h-10 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100';
+                    }}
                   />
                   <div>
                     <h4 className="font-bold text-sm text-neutral-900 leading-tight">
@@ -554,6 +617,15 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </span>
                     {copiedInvite && <span className="text-[10px] bg-blue-100 text-[#1877F2] px-1.5 py-0.5 rounded font-bold">Copiado!</span>}
                   </button>
+                  <a
+                    href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`Irmão, aqui está o seu convite oficial para criar seu perfil na rede social exclusiva do Los Motokas MC (Mossoró/RN): ${typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}?convite=losmotokas` : ''}`)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="w-full text-left px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 flex items-center gap-2"
+                  >
+                    <Share2 className="w-4 h-4 text-emerald-600" />
+                    <span>Convidar Irmão pelo WhatsApp</span>
+                  </a>
                 </div>
 
                 {allMembers.length > 1 && (
@@ -621,6 +693,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                   src={currentUser?.avatar_url || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100'}
                   alt={currentUser?.nickname || 'Membro'}
                   className="w-9 h-9 rounded-full object-cover border border-white/50"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100';
+                  }}
                 />
                 <div>
                   <span className="font-bold text-sm text-white block leading-tight">
@@ -795,6 +870,17 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span>{copiedInvite ? 'Link Copiado!' : 'Link de Convite'}</span>
               </button>
 
+              <a
+                href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`Irmão, aqui está o seu convite oficial para criar seu perfil na rede social exclusiva do Los Motokas MC (Mossoró/RN): ${typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}?convite=losmotokas` : ''}`)}`}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center justify-center gap-1.5 flex-1 min-w-[140px] py-2 px-3 bg-emerald-600/90 hover:bg-emerald-600 text-white rounded-lg font-semibold transition-colors cursor-pointer"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                <span>WhatsApp Convite</span>
+              </a>
+
               <button
                 onClick={() => {
                   setMobileMenuOpen(false);
@@ -844,13 +930,24 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
 
             <div className="py-6 flex flex-col items-center text-center">
+              {/* Badge indicando GIF animado ativo */}
+              {isGifFile && (
+                <div className="mb-3 px-3 py-1 bg-amber-500/10 border border-amber-500/30 text-amber-700 rounded-full text-xs font-bold flex items-center gap-1.5 animate-pulse">
+                  <Flame className="w-3.5 h-3.5 text-amber-500" />
+                  <span>GIF Animado Detectado — Animação Preservada 100%!</span>
+                </div>
+              )}
+
               {/* Preview circular com destaque */}
               <div className="relative group mb-4">
-                <div className="w-32 h-32 rounded-full border-4 border-[#1877F2] shadow-xl overflow-hidden p-1 bg-neutral-50">
+                <div className="w-32 h-32 rounded-full border-4 border-[#1877F2] shadow-xl overflow-hidden p-1 bg-neutral-50 flex items-center justify-center">
                   <img 
-                    src={newEmblemPreview || officialEmblem} 
+                    src={newEmblemPreview || officialEmblem || '/escudo_oficial.jpg'} 
                     alt="Prévia do Emblema Oficial" 
                     className="w-full h-full object-cover rounded-full"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = '/escudo_oficial.jpg';
+                    }}
                   />
                 </div>
                 <button
@@ -864,10 +961,12 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
 
               <h4 className="font-bold text-neutral-800 text-sm">
-                Esta imagem do seu PC será o Emblema Oficial
+                {isGifFile ? 'Seu GIF Animado será o Emblema Oficial' : 'Esta imagem do seu PC será o Emblema Oficial'}
               </h4>
               <p className="text-xs text-neutral-500 mt-1.5 max-w-xs leading-relaxed">
-                Ela ficará salva permanentemente no topo esquerdo do app, na tela de login, nos comunicados e em toda a irmandade LOSMOTOKAS MC.
+                {isGifFile 
+                  ? 'A animação do GIF rodará com perfeição no topo esquerdo do app, na tela de convite e para todos os membros da irmandade!' 
+                  : 'Ela ficará salva permanentemente no topo esquerdo do app, na tela de login, nos comunicados e em toda a irmandade LOSMOTOKAS MC.'}
               </p>
 
               <button

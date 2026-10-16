@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, UserCheck, UserX, Clock, AlertCircle, 
   FileText, CheckCircle2, ChevronRight, UserCog, History, 
-  Copy, Check, Share2, Send, ExternalLink, Sparkles, Database, Terminal, RefreshCw 
+  Copy, Check, Share2, Send, ExternalLink, Sparkles, Database, Terminal, RefreshCw, Upload, Camera
 } from 'lucide-react';
 import { MemberRequest, Profile, AuditLog, MemberRole, MemberStatus } from '../types/database';
 import { store } from '../services/store';
@@ -26,6 +26,82 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(store.getAuditLogs());
   const [copiedInvite, setCopiedInvite] = useState(false);
   const [copiedSql, setCopiedSql] = useState(false);
+  const [officialEmblem, setOfficialEmblem] = useState<string>(store.getOfficialEmblem());
+  const [emblemUploadMsg, setEmblemUploadMsg] = useState<string | null>(null);
+  const adminEmblemRef = React.useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    const unsub = store.subscribe(() => {
+      setRequests(store.getRequests());
+      setMembers(store.getMembers());
+      setAuditLogs(store.getAuditLogs());
+      setOfficialEmblem(store.getOfficialEmblem());
+    });
+    return unsub;
+  }, []);
+
+  const handleAdminEmblemUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const isGif = file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif');
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const src = event.target?.result as string;
+      if (!src) return;
+
+      if (isGif) {
+        store.setOfficialEmblem(src);
+        setOfficialEmblem(src);
+        setEmblemUploadMsg('Emblema Oficial em GIF Animado salvo e sincronizado no Supabase com sucesso!');
+        setTimeout(() => setEmblemUploadMsg(null), 4000);
+        return;
+      }
+
+      const img = new Image();
+      img.onload = () => {
+        const MAX_DIM = 600;
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+          if (width > MAX_DIM) {
+            height = Math.round((height * MAX_DIM) / width);
+            width = MAX_DIM;
+          }
+        } else {
+          if (height > MAX_DIM) {
+            width = Math.round((width * MAX_DIM) / height);
+            height = MAX_DIM;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+          store.setOfficialEmblem(dataUrl);
+          setOfficialEmblem(dataUrl);
+        } else {
+          store.setOfficialEmblem(src);
+          setOfficialEmblem(src);
+        }
+        setEmblemUploadMsg('Emblema oficial atualizado e salvo no Supabase!');
+        setTimeout(() => setEmblemUploadMsg(null), 4000);
+      };
+      img.onerror = () => {
+        store.setOfficialEmblem(src);
+        setOfficialEmblem(src);
+        setEmblemUploadMsg('Emblema oficial atualizado!');
+        setTimeout(() => setEmblemUploadMsg(null), 4000);
+      };
+      img.src = src;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
 
   const config = getStoredConfig();
   const isConfigured = isSupabaseConfigured();
@@ -164,6 +240,55 @@ export const AdminView: React.FC<AdminViewProps> = ({
           <div className="mt-2.5 bg-white px-3 py-1.5 rounded-lg border border-blue-200 text-xs font-mono text-neutral-600 truncate select-all">
             {inviteUrl}
           </div>
+
+          {/* PRÉVIA VISUAL DO CONVITE COM O EMBLEMA OFICIAL */}
+          <div className="mt-3 pt-3 border-t border-blue-200/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <input
+                type="file"
+                ref={adminEmblemRef}
+                accept="image/*,image/gif,.gif"
+                className="hidden"
+                onChange={handleAdminEmblemUpload}
+              />
+              <div className="w-12 h-12 rounded-full bg-white p-0.5 border-2 border-[#1877F2]/40 overflow-hidden shrink-0 shadow-xs flex items-center justify-center">
+                <img
+                  src={officialEmblem || '/escudo_oficial.jpg'}
+                  alt="Emblema Oficial Ativo"
+                  className="w-full h-full object-cover rounded-full"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/escudo_oficial.jpg';
+                  }}
+                />
+              </div>
+              <div className="min-w-0">
+                <span className="text-xs font-bold text-neutral-800 flex items-center gap-1.5 flex-wrap">
+                  <span>Emblema Oficial Ativo</span>
+                  <span className="text-[10px] font-semibold bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded">Sincronizado Supabase</span>
+                  <span className="text-[10px] font-semibold bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded">Suporta GIF Animado</span>
+                </span>
+                <p className="text-[11px] text-neutral-500">
+                  Este é o brasão oficial exibido para todos os membros e nos convites.
+                </p>
+                {emblemUploadMsg && (
+                  <p className="text-xs font-bold text-emerald-600 mt-1 animate-in fade-in flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    {emblemUploadMsg}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => adminEmblemRef.current?.click()}
+              className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-white text-xs font-bold rounded-lg shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 self-end sm:self-auto"
+              title="Carregar arquivo GIF ou imagem do PC"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              <span>Enviar Emblema (GIF/Imagem)</span>
+            </button>
+          </div>
         </div>
 
         {/* CARD DOS ADMINISTRADORES OFICIAIS SALVOS */}
@@ -193,6 +318,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
                         alt={adminProfile?.nickname || 'Administrador'}
                         className="w-full h-full object-cover rounded-full"
                         referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150';
+                        }}
                       />
                     </div>
                     <div className="min-w-0">
@@ -358,6 +486,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
                       src={m.avatar_url || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100'}
                       alt={m.nickname}
                       className="w-10 h-10 rounded-full object-cover shrink-0 border border-neutral-200"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100';
+                      }}
                     />
                     <div className="min-w-0">
                       <span className="font-bold text-sm text-neutral-900 block truncate">{m.nickname}</span>
@@ -440,6 +571,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
                             src={m.avatar_url || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100'}
                             alt={m.nickname}
                             className="w-8 h-8 rounded-full object-cover shrink-0 border border-neutral-200"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100';
+                            }}
                           />
                           <div>
                             <span className="font-bold text-neutral-900 block">{m.nickname}</span>
