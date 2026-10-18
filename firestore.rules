@@ -1,0 +1,113 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOfficialAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email.lower() == 'klebiohonoratorocha@gmail.com' ||
+        request.auth.token.email.lower() == 'jequisilveira@gmail.com'
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128;
+    }
+
+    // Regra global padrão: negar por padrão
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Documento de teste de conexão
+    match /test/connection {
+      allow read, write: if true;
+    }
+
+    // Perfis dos membros da irmandade
+    match /profiles/{profileId} {
+      allow get, list: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if isOfficialAdmin() || true;
+    }
+
+    // Publicações da linha do tempo
+    match /posts/{postId} {
+      allow get, list: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if true;
+    }
+
+    // Comentários
+    match /comments/{commentId} {
+      allow get, list: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if true;
+    }
+
+    // Notificações em tempo real (posts, curtidas, comentários)
+    match /notifications/{notificationId} {
+      allow get, list: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if true;
+    }
+
+    // Álbuns de fotos e vídeos
+    match /albums/{albumId} {
+      allow get, list: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if true;
+    }
+
+    // Mídias dentro dos álbuns
+    match /album_media/{mediaId} {
+      allow get, list: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if true;
+    }
+
+    // Comunicados oficiais
+    match /announcements/{announcementId} {
+      allow get, list: if true;
+      allow create, update, delete: if true;
+    }
+
+    // Solicitações de adesão
+    match /member_requests/{requestId} {
+      allow get, list: if true;
+      allow create: if true;
+      allow update, delete: if true;
+    }
+
+    // Configurações gerais (emblema oficial etc)
+    match /app_settings/{settingKey} {
+      allow get, list: if true;
+      allow create, update: if true;
+      allow delete: if isOfficialAdmin();
+    }
+
+    // Logs de auditoria
+    match /audit_logs/{logId} {
+      allow get, list: if true;
+      allow create: if true;
+      allow update, delete: if isOfficialAdmin();
+    }
+
+    // Administradores
+    match /admins/{adminId} {
+      allow get, list: if true;
+      allow create, update, delete: if isOfficialAdmin();
+    }
+  }
+}

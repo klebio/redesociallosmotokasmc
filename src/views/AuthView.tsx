@@ -6,7 +6,6 @@ import {
   Calendar, Heart, Check, RefreshCw
 } from 'lucide-react';
 import { store } from '../services/store';
-import { getSupabase } from '../lib/supabase';
 import { Profile } from '../types/database';
 
 interface AuthViewProps {
@@ -80,8 +79,8 @@ export const AuthView: React.FC<AuthViewProps> = ({
 
   // Detecta se a página foi aberta com link de convite / cadastro e sincroniza emblema
   useEffect(() => {
-    // Sincroniza configurações e dados do Supabase para garantir que o emblema oficial venha da nuvem
-    store.hydrateFromSupabase();
+    // Sincroniza configurações e dados do Firebase Firestore para garantir que o emblema oficial venha da nuvem
+    store.initFirebase();
 
     const unsub = store.subscribe(() => {
       setOfficialEmblem(store.getOfficialEmblem());
@@ -214,26 +213,18 @@ export const AuthView: React.FC<AuthViewProps> = ({
     setErrorMessage('');
 
     try {
-      const client = getSupabase();
-      if (client) {
-        const { data, error } = await client.auth.signInWithPassword({
-          email: email.trim(),
-          password: password,
-        });
-
-        if (!error && data.user) {
-          store.setCurrentUser(data.user.id);
-          const isAdmin = store.isAdminEmail(data.user.email) || store.isDiretoria();
-          setIsLoading(false);
-          onLoginSuccess(isAdmin ? 'admin' : 'feed', data.user.id);
-          return;
-        }
-      }
-
       const members = store.getMembers();
       const matched = members.find((m) => m.email.toLowerCase() === email.toLowerCase().trim());
 
       if (matched) {
+        // Bloqueia login se o perfil estiver suspenso pela diretoria (exceto fundadores)
+        if (matched.status === 'suspended' && !store.isAdminEmail(matched.email)) {
+          const reasonText = matched.suspension_reason ? ` Motivo: ${matched.suspension_reason}.` : '';
+          setErrorMessage(`Seu perfil está temporariamente suspenso pela Diretoria do Los Motokas MC.${reasonText} Por favor, entre em contato com um dos diretores.`);
+          setIsLoading(false);
+          return;
+        }
+
         // Se o membro cadastrou senha, valida se está correta
         if (matched.password && matched.password !== password) {
           setErrorMessage('Senha incorreta para este e-mail. Caso tenha esquecido, clique em "Esqueci a senha" abaixo.');
@@ -288,40 +279,10 @@ export const AuthView: React.FC<AuthViewProps> = ({
     setErrorMessage('');
 
     try {
-      let createdUserId: string | undefined = undefined;
-      const client = getSupabase();
-
-      // Se Supabase estiver conectado, cadastra no Supabase Auth
-      if (client && regPassword) {
-        try {
-          const { data: authData, error: authError } = await client.auth.signUp({
-            email: regEmail.trim(),
-            password: regPassword,
-            options: {
-              data: {
-                full_name: regFullName.trim(),
-                nickname: regNickname.trim(),
-                motorcycle_model: regMotorcycle.trim(),
-                phone: regPhone.trim(),
-                birth_date: regBirthDate.trim(),
-                mother_name: regMotherName.trim(),
-              },
-            },
-          });
-
-          if (!authError && authData.user) {
-            createdUserId = authData.user.id;
-          }
-        } catch (authErr) {
-          console.warn('Cadastro no Supabase Auth:', authErr);
-        }
-      }
-
       const isAdmin = store.isAdminEmail(regEmail.trim());
 
       // Registra perfil individual no banco de dados e no store
       const newMember = await store.registerMemberProfile({
-        id: createdUserId,
         email: regEmail.trim(),
         full_name: regFullName.trim(),
         nickname: regNickname.trim(),

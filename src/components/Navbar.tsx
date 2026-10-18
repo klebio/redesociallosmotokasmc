@@ -5,8 +5,7 @@ import {
   Home, Camera, Bookmark, Users, Megaphone, ShieldCheck, Upload, Share2
 } from 'lucide-react';
 import { store } from '../services/store';
-import { isSupabaseConfigured } from '../lib/supabase';
-import { Profile } from '../types/database';
+import { Profile, Notification } from '../types/database';
 
 interface NavbarProps {
   currentTab: string;
@@ -25,12 +24,11 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const [currentUser, setCurrentUser] = useState<Profile | null>(store.getCurrentUser());
   const [allMembers, setAllMembers] = useState<Profile[]>(store.getMembers());
-  const [notifications, setNotifications] = useState(store.getNotifications());
+  const [notifications, setNotifications] = useState<Notification[]>(store.getNotifications());
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isConfigured, setIsConfigured] = useState(isSupabaseConfigured());
   const [copiedInvite, setCopiedInvite] = useState(false);
 
   // ESTADO DO EMBLEMA OFICIAL (UPLOAD DO PC)
@@ -46,7 +44,6 @@ export const Navbar: React.FC<NavbarProps> = ({
       setCurrentUser(store.getCurrentUser());
       setAllMembers(store.getMembers());
       setNotifications(store.getNotifications());
-      setIsConfigured(isSupabaseConfigured());
       setOfficialEmblem(store.getOfficialEmblem());
     });
     return unsub;
@@ -123,8 +120,8 @@ export const Navbar: React.FC<NavbarProps> = ({
       setNewEmblemPreview(null);
       setEmblemToast(
         isGifFile 
-          ? 'Emblema Oficial em GIF Animado salvo e sincronizado no Supabase!' 
-          : 'Emblema oficial atualizado e salvo no Supabase com sucesso!'
+          ? 'Emblema Oficial em GIF Animado salvo e sincronizado no Firebase Firestore!' 
+          : 'Emblema oficial atualizado e salvo no Firebase Firestore com sucesso!'
       );
       setTimeout(() => setEmblemToast(null), 4000);
     }
@@ -338,24 +335,24 @@ export const Navbar: React.FC<NavbarProps> = ({
                         </div>
                       </button>
 
-                      {/* BANCO DE DADOS & SQL (DIRETORIA) */}
+                      {/* BANCO DE DADOS FIREBASE (DIRETORIA) */}
                       <button
                         onClick={() => {
                           onOpenConfig();
                           setShowSettingsDropdown(false);
                         }}
-                        className="w-full text-left px-3.5 py-2 text-xs hover:bg-blue-50/70 flex items-center gap-3 transition-colors cursor-pointer text-neutral-700 border-t border-neutral-100 mt-0.5"
+                        className="w-full text-left px-3.5 py-2 text-xs hover:bg-amber-50/70 flex items-center gap-3 transition-colors cursor-pointer text-neutral-700 border-t border-neutral-100 mt-0.5"
                       >
-                        <div className="p-2 rounded-lg bg-blue-100 text-[#1877F2] shrink-0">
-                          <Database className="w-4 h-4" />
+                        <div className="p-2 rounded-lg bg-amber-100 text-amber-700 shrink-0">
+                          <Flame className="w-4 h-4 text-amber-600" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
-                            <span className="font-bold text-neutral-900 block text-xs">Supabase & SQL</span>
+                            <span className="font-bold text-neutral-900 block text-xs">Firebase Firestore</span>
                             <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.2 rounded">Conectado</span>
                           </div>
                           <span className="text-[11px] text-neutral-500 font-normal block leading-tight truncate">
-                            Status do banco e script de migração
+                            Status da nuvem e tempo real
                           </span>
                         </div>
                       </button>
@@ -820,10 +817,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                           onOpenConfig();
                           setMobileMenuOpen(false);
                         }}
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg font-bold transition-colors text-left bg-blue-700/60 text-white hover:bg-blue-700"
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg font-bold transition-colors text-left bg-amber-600/80 text-white hover:bg-amber-600"
                       >
-                        <Database className="w-4 h-4 shrink-0 text-blue-200" />
-                        <span>Supabase & SQL</span>
+                        <Flame className="w-4 h-4 shrink-0 text-amber-200" />
+                        <span>Firebase Firestore</span>
                         <span className="text-[9px] bg-emerald-500 text-white px-1.5 rounded font-mono ml-auto">OK</span>
                       </button>
                     </>

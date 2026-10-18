@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
-import { SupabaseConfigModal } from './components/SupabaseConfigModal';
+import { FirebaseConfigModal } from './components/FirebaseConfigModal';
 import { FeedView } from './views/FeedView';
 import { AlbumsView } from './views/AlbumsView';
 import { MemoriesView } from './views/MemoriesView';
@@ -12,7 +12,7 @@ import { AuthView } from './views/AuthView';
 import { store } from './services/store';
 import { Profile } from './types/database';
 import { 
-  Home, Camera, Bookmark, Users, Megaphone, ShieldCheck, User, Settings, X 
+  Home, Camera, Bookmark, Users, Megaphone, ShieldCheck, User, Settings, X, PauseCircle 
 } from 'lucide-react';
 
 export default function App() {
@@ -75,11 +75,69 @@ export default function App() {
           }}
           onOpenConfig={() => setIsConfigModalOpen(true)}
         />
-        <SupabaseConfigModal
+        <FirebaseConfigModal
           isOpen={isConfigModalOpen}
           onClose={() => setIsConfigModalOpen(false)}
         />
       </>
+    );
+  }
+
+  // TELA PARA MEMBRO COM PERFIL TEMPORARIAMENTE SUSPENSO PELA DIRETORIA
+  if (currentUser && currentUser.status === 'suspended' && !store.isAdminEmail(currentUser.email)) {
+    return (
+      <div className="min-h-screen bg-[#F0F2F5] text-[#1C1E21] flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-xl border border-amber-300 max-w-lg w-full p-6 sm:p-8 text-center space-y-5 animate-in fade-in duration-200">
+          <div className="w-20 h-20 rounded-full bg-amber-100 text-amber-800 mx-auto flex items-center justify-center border-4 border-amber-200">
+            <PauseCircle className="w-10 h-10 text-amber-600" />
+          </div>
+
+          <div className="space-y-2">
+            <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-800 bg-amber-100 px-3 py-1 rounded-full border border-amber-300">
+              Aviso da Diretoria — Los Motokas MC
+            </span>
+            <h2 className="text-xl sm:text-2xl font-black text-neutral-900 font-['Plus_Jakarta_Sans']">
+              Perfil Temporariamente Suspenso
+            </h2>
+            <p className="text-xs sm:text-sm text-neutral-600 leading-relaxed">
+              Irmão <strong>{currentUser.nickname}</strong> ({currentUser.full_name}), seu perfil foi suspenso temporariamente pela Diretoria do motoclube.
+            </p>
+          </div>
+
+          {currentUser.suspension_reason && (
+            <div className="p-3.5 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-900 text-left space-y-1">
+              <span className="font-bold block text-amber-800">Motivo informado pela Diretoria:</span>
+              <p className="italic">"{currentUser.suspension_reason}"</p>
+              {currentUser.suspended_at && (
+                <span className="block text-[10px] text-amber-700/80 mt-1 font-mono">
+                  Registrado em: {new Date(currentUser.suspended_at).toLocaleDateString('pt-BR')} às {new Date(currentUser.suspended_at).toLocaleTimeString('pt-BR')}
+                </span>
+              )}
+            </div>
+          )}
+
+          <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200 text-xs text-neutral-500">
+            Durante o período de suspensão, o acesso à linha do tempo, publicações e mídias fica restrito. Entre em contato com a Diretoria para regularizar sua situação na irmandade.
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2.5 pt-2">
+            <a
+              href="https://api.whatsapp.com"
+              target="_blank"
+              rel="noreferrer"
+              className="flex-1 py-2.5 bg-[#25D366] hover:bg-[#20ba59] text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-colors shadow-xs"
+            >
+              <span>Falar com a Diretoria no WhatsApp</span>
+            </a>
+            <button
+              onClick={handleLogout}
+              className="py-2.5 px-4 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-bold rounded-xl text-xs transition-colors"
+            >
+              Sair da Conta
+            </button>
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -305,7 +363,7 @@ export default function App() {
       )}
 
       {/* MODAL GLOBAL DO SUPABASE CONFIG */}
-      <SupabaseConfigModal
+      <FirebaseConfigModal
         isOpen={isConfigModalOpen}
         onClose={() => setIsConfigModalOpen(false)}
       />

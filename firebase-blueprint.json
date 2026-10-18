@@ -1,0 +1,224 @@
+{
+  "entities": {
+    "Profile": {
+      "title": "Profile",
+      "description": "Perfil de membro da irmandade Los Motokas MC",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" },
+        "full_name": { "type": "string" },
+        "nickname": { "type": "string" },
+        "role": { "type": "string", "enum": ["diretoria", "membro", "aspirante"] },
+        "status": { "type": "string", "enum": ["active", "suspended", "pending"] },
+        "motorcycle_model": { "type": "string" },
+        "phone": { "type": "string" },
+        "birth_date": { "type": "string" },
+        "mother_name": { "type": "string" },
+        "city": { "type": "string" },
+        "bio": { "type": "string" },
+        "avatar_url": { "type": "string" },
+        "cover_url": { "type": "string" },
+        "password": { "type": "string" },
+        "joined_at": { "type": "string" },
+        "created_at": { "type": "string" },
+        "suspended_at": { "type": "string" },
+        "suspension_reason": { "type": "string" }
+      },
+      "required": ["id", "email", "full_name", "nickname", "role", "status", "created_at"]
+    },
+    "Post": {
+      "title": "Post",
+      "description": "Publicação na linha do tempo do motoclube",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "author_id": { "type": "string" },
+        "content": { "type": "string" },
+        "category": { "type": "string" },
+        "privacy": { "type": "string", "enum": ["brothers_only", "diretoria_only"] },
+        "is_pinned": { "type": "boolean" },
+        "likes_count": { "type": "number" },
+        "comments_count": { "type": "number" },
+        "media": { "type": "array" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["id", "author_id", "content", "created_at"]
+    },
+    "Comment": {
+      "title": "Comment",
+      "description": "Comentário em uma publicação",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "post_id": { "type": "string" },
+        "author_id": { "type": "string" },
+        "content": { "type": "string" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["id", "post_id", "author_id", "content", "created_at"]
+    },
+    "Album": {
+      "title": "Album",
+      "description": "Álbum de fotos e vídeos da irmandade",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "cover_url": { "type": "string" },
+        "author_id": { "type": "string" },
+        "category": { "type": "string" },
+        "is_official": { "type": "boolean" },
+        "media_count": { "type": "number" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["id", "title", "category", "created_at"]
+    },
+    "AlbumMedia": {
+      "title": "AlbumMedia",
+      "description": "Foto ou vídeo dentro de um álbum",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "album_id": { "type": "string" },
+        "url": { "type": "string" },
+        "media_type": { "type": "string", "enum": ["photo", "video"] },
+        "caption": { "type": "string" },
+        "storage_path": { "type": "string" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["id", "album_id", "url", "media_type", "created_at"]
+    },
+    "Announcement": {
+      "title": "Announcement",
+      "description": "Comunicado oficial emitido pela diretoria",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "author_id": { "type": "string" },
+        "priority": { "type": "string", "enum": ["normal", "high", "urgent"] },
+        "created_at": { "type": "string" }
+      },
+      "required": ["id", "title", "content", "author_id", "priority", "created_at"]
+    },
+    "MemberRequest": {
+      "title": "MemberRequest",
+      "description": "Solicitação de adesão de novo membro",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "full_name": { "type": "string" },
+        "nickname": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "motorcycle_model": { "type": "string" },
+        "city": { "type": "string" },
+        "reason": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "created_at": { "type": "string" }
+      },
+      "required": ["id", "full_name", "nickname", "email", "status", "created_at"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "Notificação em tempo real para membros da irmandade",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "actor_id": { "type": "string" },
+        "type": { "type": "string", "enum": ["post", "reaction", "comment", "announcement", "member_approved"] },
+        "entity_id": { "type": "string" },
+        "post_id": { "type": "string" },
+        "message": { "type": "string" },
+        "read": { "type": "boolean" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["id", "user_id", "actor_id", "type", "message", "read", "created_at"]
+    },
+    "AppSetting": {
+      "title": "AppSetting",
+      "description": "Configurações gerais do sistema (ex: emblema oficial)",
+      "type": "object",
+      "properties": {
+        "key": { "type": "string" },
+        "value": { "type": "string" },
+        "updated_at": { "type": "string" }
+      },
+      "required": ["key", "value", "updated_at"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Registro de auditoria de ações administrativas",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "admin_email": { "type": "string" },
+        "action": { "type": "string" },
+        "target": { "type": "string" },
+        "details": { "type": "string" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["id", "admin_email", "action", "target", "created_at"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "Registro de permissão de administrador",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "granted_at": { "type": "string" }
+      },
+      "required": ["email", "granted_at"]
+    }
+  },
+  "firestore": {
+    "/profiles/{profileId}": {
+      "schema": { "$ref": "#/entities/Profile" },
+      "description": "Perfis dos membros da irmandade"
+    },
+    "/posts/{postId}": {
+      "schema": { "$ref": "#/entities/Post" },
+      "description": "Publicações na linha do tempo"
+    },
+    "/comments/{commentId}": {
+      "schema": { "$ref": "#/entities/Comment" },
+      "description": "Comentários em publicações"
+    },
+    "/notifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/Notification" },
+      "description": "Notificações em tempo real dos membros"
+    },
+    "/albums/{albumId}": {
+      "schema": { "$ref": "#/entities/Album" },
+      "description": "Álbuns de fotos e vídeos"
+    },
+    "/album_media/{mediaId}": {
+      "schema": { "$ref": "#/entities/AlbumMedia" },
+      "description": "Mídias de álbuns"
+    },
+    "/announcements/{announcementId}": {
+      "schema": { "$ref": "#/entities/Announcement" },
+      "description": "Comunicados oficiais da diretoria"
+    },
+    "/member_requests/{requestId}": {
+      "schema": { "$ref": "#/entities/MemberRequest" },
+      "description": "Solicitações de adesão"
+    },
+    "/app_settings/{settingKey}": {
+      "schema": { "$ref": "#/entities/AppSetting" },
+      "description": "Configurações globais (emblema oficial etc)"
+    },
+    "/audit_logs/{logId}": {
+      "schema": { "$ref": "#/entities/AuditLog" },
+      "description": "Logs de auditoria da diretoria"
+    },
+    "/admins/{adminId}": {
+      "schema": { "$ref": "#/entities/Admin" },
+      "description": "Lista de administradores autorizados"
+    }
+  }
+}

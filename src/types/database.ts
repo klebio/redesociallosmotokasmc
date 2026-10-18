@@ -21,6 +21,8 @@ export interface Profile {
   motorcycle_model?: string;
   joined_at: string;
   created_at: string;
+  suspended_at?: string;
+  suspension_reason?: string;
 }
 
 export interface MemberRequest {
@@ -125,8 +127,9 @@ export interface Notification {
   id: string;
   user_id: string;
   actor_id: string;
-  type: 'reaction' | 'comment' | 'announcement' | 'member_approved';
+  type: 'post' | 'reaction' | 'comment' | 'announcement' | 'member_approved';
   entity_id?: string;
+  post_id?: string;
   message: string;
   read: boolean;
   created_at: string;
@@ -135,7 +138,9 @@ export interface Notification {
 
 export interface AuditLog {
   id: string;
-  actor_id: string;
+  actor_id?: string;
+  admin_id?: string;
+  admin_email?: string;
   action: string;
   target_type: string;
   target_id: string;

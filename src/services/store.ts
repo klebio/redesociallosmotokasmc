@@ -6,7 +6,12 @@ import {
   INITIAL_MEMBERS, INITIAL_POSTS, INITIAL_ALBUMS, 
   INITIAL_ANNOUNCEMENTS, INITIAL_REQUESTS, OFFICIAL_ADMIN_EMAILS 
 } from '../data/mockSeed';
-import { getSupabase, isSupabaseConfigured } from '../lib/supabase';
+import { 
+  db, handleFirestoreError, OperationType, testFirebaseConnection 
+} from '../lib/firebase';
+import { 
+  collection, doc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot 
+} from 'firebase/firestore';
 
 // Chaves de armazenamento local resiliente
 const STORAGE_PREFIX = 'los_motokas_state_';
@@ -36,7 +41,7 @@ function save<T>(key: string, value: T): void {
 
 const DEFAULT_OFFICIAL_EMBLEM = '/escudo_oficial.jpg';
 
-// Estado reativo da aplicação (Apenas dados e membros reais)
+// Estado reativo da aplicação integrado ao Firebase Firestore em tempo real
 class DataStore {
   private currentUserId: string = loadOr('currentUserId', '');
   private officialEmblem: string = (() => {
@@ -57,11 +62,12 @@ class DataStore {
   private auditLogs: AuditLog[] = loadOr('auditLogs', []);
 
   private listeners: Set<() => void> = new Set();
+  private isFirebaseInitialized = false;
 
   constructor() {
     this.cleanLegacyFakeData();
     this.ensureOfficialAdminsExist();
-    this.hydrateFromSupabase();
+    this.initFirebase();
   }
 
   // Verifica se o email informado pertence aos administradores oficiais permanentes
@@ -81,7 +87,6 @@ class DataStore {
       );
 
       if (existingIndex >= 0) {
-        // Se o perfil do administrador já existe, garante o cargo de diretoria e status ativo
         const existing = this.members[existingIndex];
         if (existing.role !== 'diretoria' || existing.status !== 'active') {
           this.members[existingIndex] = {
@@ -92,7 +97,6 @@ class DataStore {
           changed = true;
         }
       } else {
-        // Se ainda não estava no armazenamento local, adiciona o perfil do administrador
         this.members.push({ ...initialAdmin });
         changed = true;
       }
@@ -103,78 +107,47 @@ class DataStore {
     }
   }
 
-  // Remove qualquer perfil e post falso salvo em sessões anteriores (mantendo apenas perfis reais)
+  // Remove qualquer perfil falso legado
   private cleanLegacyFakeData() {
     const isFakeMember = (m: Profile) => {
       if (!m || !m.id) return true;
       const id = (m.id || '').toLowerCase();
       const email = (m.email || '').toLowerCase().trim();
-      const name = (m.full_name || '').toLowerCase();
-      const nick = (m.nickname || '').toLowerCase();
 
-      // NUNCA remover perfis de administradores oficiais
       if (this.isAdminEmail(email)) return false;
 
       return (
         id.startsWith('user-trovao') ||
         id.startsWith('user-machado') ||
         id.startsWith('user-falcao') ||
-        id.startsWith('user-sombra') ||
-        id.startsWith('mock-') ||
-        id.startsWith('demo-') ||
-        email.includes('trovao@') ||
-        email.includes('machado@') ||
-        email.includes('falcao@') ||
-        email.includes('sombra@') ||
-        email.includes('trovao@losmotokas') ||
-        nick === 'trovão' ||
-        nick === 'machado' ||
-        nick === 'falcão' ||
-        nick === 'sombra' ||
-        name.includes('roberto mendonça') ||
-        name.includes('carlos eduardo (machado)') ||
-        name.includes('fernando albuquerque') ||
-        name.includes('lucas pinheiro')
+        id.startsWith('user-lobo') ||
+        id.startsWith('user-fantasma') ||
+        id.startsWith('user-aguia') ||
+        id.startsWith('user-caveira') ||
+        id.startsWith('user-dragao') ||
+        id.startsWith('user-vento') ||
+        id.startsWith('user-sombras') ||
+        id.startsWith('user-furia') ||
+        id.startsWith('user-ronco')
       );
     };
 
-    const isFakePost = (p: Post) => {
-      if (!p || !p.id) return true;
-      const id = p.id;
-      const authorId = (p.author_id || '').toLowerCase();
-      return (
-        id === 'post-01' ||
-        id === 'post-02' ||
-        id === 'post-03' ||
-        authorId.startsWith('user-trovao') ||
-        authorId.startsWith('user-machado') ||
-        authorId.startsWith('user-falcao') ||
-        authorId.startsWith('user-sombra') ||
-        authorId.startsWith('mock-') ||
-        authorId.startsWith('demo-')
-      );
-    };
-
-    const prevCount = this.members.length;
+    const prevLength = this.members.length;
     this.members = this.members.filter((m) => !isFakeMember(m));
-    if (this.members.length !== prevCount) {
+    if (this.members.length !== prevLength) {
       save('members', this.members);
     }
 
-    const prevPostCount = this.posts.length;
-    this.posts = this.posts.filter((p) => !isFakePost(p));
-    if (this.posts.length !== prevPostCount) {
-      save('posts', this.posts);
-    }
-
-    // Se o currentUserId era de um perfil fake ou não existe na lista de membros reais
-    if (!this.currentUserId || !this.members.some((m) => m.id === this.currentUserId)) {
-      this.currentUserId = this.members[0]?.id || '';
-      save('currentUserId', this.currentUserId);
+    if (this.currentUserId) {
+      const current = this.getCurrentUser();
+      if (!current || isFakeMember(current)) {
+        this.currentUserId = '';
+        save('currentUserId', '');
+      }
     }
   }
 
-  public subscribe(listener: () => void) {
+  public subscribe(listener: () => void): () => void {
     this.listeners.add(listener);
     return () => {
       this.listeners.delete(listener);
@@ -185,206 +158,304 @@ class DataStore {
     this.listeners.forEach((l) => l());
   }
 
-  // Tenta sincronizar com o Supabase quando as credenciais estiverem ativas
-  public async hydrateFromSupabase() {
-    if (!isSupabaseConfigured()) return;
-    const client = getSupabase();
-    if (!client) return;
+  // ==========================================
+  // INICIALIZAÇÃO E SINCRONIZAÇÃO EM TEMPO REAL COM O FIREBASE
+  // ==========================================
+  public async initFirebase(): Promise<void> {
+    if (this.isFirebaseInitialized) return;
+    this.isFirebaseInitialized = true;
 
     try {
-      // 1. Carrega configurações do sistema (ex: emblema oficial do clube)
-      try {
-        const { data: settingsData } = await client.from('app_settings').select('*');
-        if (settingsData && settingsData.length > 0) {
-          const emblemSetting = settingsData.find((s: any) => s.key === 'official_emblem');
-          if (emblemSetting && emblemSetting.value) {
-            this.officialEmblem = emblemSetting.value;
+      await testFirebaseConnection();
+      await this.hydrateInitialFromFirestore();
+      this.listenToRealtimeFirestore();
+    } catch (err) {
+      console.warn('Conexão inicial com Firebase Firestore fallback local:', err);
+    }
+  }
+
+  // Hidratação inicial dos dados a partir do Firestore
+  private async hydrateInitialFromFirestore(): Promise<void> {
+    try {
+      // 1. Carrega configurações do sistema (emblema oficial etc)
+      const settingsSnap = await getDocs(collection(db, 'app_settings'));
+      if (!settingsSnap.empty) {
+        settingsSnap.forEach((d) => {
+          const data = d.data();
+          if (data.key === 'official_emblem' && data.value) {
+            this.officialEmblem = data.value;
             save('officialEmblem', this.officialEmblem);
-            this.notify();
           }
-        } else if (this.officialEmblem && this.officialEmblem !== DEFAULT_OFFICIAL_EMBLEM) {
-          // Se o Supabase ainda não tem registro, sobe o emblema configurado localmente
-          await client.from('app_settings').upsert({
-            key: 'official_emblem',
-            value: this.officialEmblem,
-            updated_at: new Date().toISOString(),
-          });
-        }
-      } catch (err) {
-        console.warn('Erro ao carregar app_settings do Supabase:', err);
+        });
+      } else {
+        // Inicializa o emblema padrão no Firestore
+        await setDoc(doc(db, 'app_settings', 'official_emblem'), {
+          key: 'official_emblem',
+          value: this.officialEmblem || DEFAULT_OFFICIAL_EMBLEM,
+          updated_at: new Date().toISOString(),
+        });
       }
 
       // 2. Carrega perfis de membros
-      const { data: profilesData } = await client.from('profiles').select('*');
-      if (profilesData && profilesData.length > 0) {
-        this.members = profilesData;
-        save('members', this.members);
+      const profilesSnap = await getDocs(collection(db, 'profiles'));
+      if (!profilesSnap.empty) {
+        const loaded: Profile[] = [];
+        profilesSnap.forEach((d) => loaded.push(d.data() as Profile));
+        if (loaded.length > 0) {
+          this.members = loaded;
+          this.ensureOfficialAdminsExist();
+          save('members', this.members);
+        }
       } else {
-        // Se a tabela ainda estiver vazia, sincroniza os admins iniciais
+        // Se a coleção profiles ainda estiver vazia no Firestore, persiste os administradores oficiais
         for (const admin of INITIAL_MEMBERS) {
-          await client.from('profiles').upsert({
-            id: admin.id,
-            email: admin.email,
-            full_name: admin.full_name,
-            nickname: admin.nickname,
-            role: admin.role,
-            status: admin.status,
-            bio: admin.bio,
-            motorcycle_model: admin.motorcycle_model,
-            joined_at: admin.joined_at,
-          });
+          await setDoc(doc(db, 'profiles', admin.id), admin);
         }
       }
 
-      // 3. Carrega publicações com mídias
-      const { data: postsData } = await client.from('posts').select('*, post_media(*)').order('created_at', { ascending: false });
-      if (postsData && postsData.length > 0) {
-        this.posts = postsData.map((p) => ({
-          ...p,
-          media: p.post_media || [],
-          likes_count: p.likes_count || 0,
-          comments_count: p.comments_count || 0,
-        }));
-        save('posts', this.posts);
+      // 3. Carrega álbuns
+      const albumsSnap = await getDocs(collection(db, 'albums'));
+      if (!albumsSnap.empty) {
+        const loadedAlbums: Album[] = [];
+        albumsSnap.forEach((d) => loadedAlbums.push(d.data() as Album));
+        this.albums = loadedAlbums;
+        save('albums', this.albums);
+      } else {
+        for (const album of INITIAL_ALBUMS) {
+          await setDoc(doc(db, 'albums', album.id), album);
+        }
       }
 
-      // 4. Carrega álbuns da irmandade
-      const { data: albumsData } = await client.from('albums').select('*, album_media(*)').order('created_at', { ascending: false });
-      if (albumsData && albumsData.length > 0) {
-        this.albums = albumsData.map((a: any) => ({
-          ...a,
-          media_count: (a.album_media || []).length,
-        }));
-        albumsData.forEach((a: any) => {
-          if (a.album_media) {
-            this.albumMedia[a.id] = a.album_media;
-          }
+      // 4. Carrega mídias dos álbuns
+      const mediaSnap = await getDocs(collection(db, 'album_media'));
+      if (!mediaSnap.empty) {
+        const tempMedia: Record<string, AlbumMedia[]> = {};
+        mediaSnap.forEach((d) => {
+          const m = d.data() as AlbumMedia;
+          if (!tempMedia[m.album_id]) tempMedia[m.album_id] = [];
+          tempMedia[m.album_id].push(m);
         });
-        save('albums', this.albums);
+        this.albumMedia = tempMedia;
         save('albumMedia', this.albumMedia);
       }
 
-      // 5. Carrega comunicados oficiais
-      const { data: announcementsData } = await client.from('announcements').select('*').order('created_at', { ascending: false });
-      if (announcementsData && announcementsData.length > 0) {
-        this.announcements = announcementsData;
+      // 5. Carrega publicações
+      const postsSnap = await getDocs(collection(db, 'posts'));
+      if (!postsSnap.empty) {
+        const loadedPosts: Post[] = [];
+        postsSnap.forEach((d) => loadedPosts.push(d.data() as Post));
+        this.posts = loadedPosts;
+        save('posts', this.posts);
+      }
+
+      // 6. Carrega comunicados
+      const annSnap = await getDocs(collection(db, 'announcements'));
+      if (!annSnap.empty) {
+        const loadedAnn: Announcement[] = [];
+        annSnap.forEach((d) => loadedAnn.push(d.data() as Announcement));
+        this.announcements = loadedAnn;
         save('announcements', this.announcements);
       }
 
-      // 6. Carrega solicitações de adesão
-      const { data: requestsData } = await client.from('member_requests').select('*').order('created_at', { ascending: false });
-      if (requestsData && requestsData.length > 0) {
-        this.requests = requestsData;
+      // 7. Carrega solicitações de adesão
+      const reqSnap = await getDocs(collection(db, 'member_requests'));
+      if (!reqSnap.empty) {
+        const loadedReq: MemberRequest[] = [];
+        reqSnap.forEach((d) => loadedReq.push(d.data() as MemberRequest));
+        this.requests = loadedReq;
         save('requests', this.requests);
       }
 
-      // Inicia sincronização em tempo real via canais Postgres Changes
-      this.initRealtimeSubscription();
+      // 8. Carrega logs de auditoria
+      const logsSnap = await getDocs(collection(db, 'audit_logs'));
+      if (!logsSnap.empty) {
+        const loadedLogs: AuditLog[] = [];
+        logsSnap.forEach((d) => loadedLogs.push(d.data() as AuditLog));
+        this.auditLogs = loadedLogs;
+        save('auditLogs', this.auditLogs);
+      }
+
+      // 9. Carrega notificações em tempo real
+      const notifsSnap = await getDocs(collection(db, 'notifications'));
+      if (!notifsSnap.empty) {
+        const loadedNotifs: Notification[] = [];
+        notifsSnap.forEach((d) => loadedNotifs.push(d.data() as Notification));
+        this.notifications = loadedNotifs;
+        save('notifications', this.notifications);
+      }
 
       this.notify();
     } catch (err) {
-      console.warn('Aviso: Utilizando sincronização local enquanto Supabase é provisionado:', err);
+      console.warn('Erro ao hidratar do Firestore:', err);
     }
   }
 
-  private isRealtimeInitialized = false;
-
-  public initRealtimeSubscription() {
-    if (this.isRealtimeInitialized || !isSupabaseConfigured()) return;
-    const client = getSupabase();
-    if (!client) return;
-    this.isRealtimeInitialized = true;
-
+  // Configura ouvintes em tempo real do Firebase Firestore
+  private listenToRealtimeFirestore(): void {
     try {
-      client
-        .channel('motokas-realtime-sync')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
-          this.hydrateFromSupabase();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, () => {
-          this.hydrateFromSupabase();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'post_media' }, () => {
-          this.hydrateFromSupabase();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, () => {
-          this.hydrateFromSupabase();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'reactions' }, () => {
-          this.hydrateFromSupabase();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'albums' }, () => {
-          this.hydrateFromSupabase();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'album_media' }, () => {
-          this.hydrateFromSupabase();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, () => {
-          this.hydrateFromSupabase();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'app_settings' }, () => {
-          this.hydrateFromSupabase();
-        })
-        .subscribe();
-    } catch (err) {
-      console.warn('Realtime channel warning:', err);
-    }
+      // Perfis de membros em tempo real
+      onSnapshot(collection(db, 'profiles'), (snapshot) => {
+        const updated: Profile[] = [];
+        snapshot.forEach((d) => updated.push(d.data() as Profile));
+        if (updated.length > 0) {
+          this.members = updated;
+          this.ensureOfficialAdminsExist();
+          save('members', this.members);
+          this.notify();
+        }
+      }, (error) => {
+        handleFirestoreError(error, OperationType.LIST, 'profiles');
+      });
 
-    // Polling contínuo de segurança a cada 6 segundos para garantir atualização em tempo real
-    if (typeof window !== 'undefined') {
-      setInterval(() => {
-        this.hydrateFromSupabase();
-      }, 6000);
+      // Emblema oficial e configurações em tempo real
+      onSnapshot(collection(db, 'app_settings'), (snapshot) => {
+        snapshot.forEach((d) => {
+          const data = d.data();
+          if (data.key === 'official_emblem' && data.value) {
+            this.officialEmblem = data.value;
+            save('officialEmblem', this.officialEmblem);
+            this.notify();
+          }
+        });
+      }, (error) => {
+        handleFirestoreError(error, OperationType.LIST, 'app_settings');
+      });
+
+      // Publicações em tempo real
+      onSnapshot(collection(db, 'posts'), (snapshot) => {
+        const updated: Post[] = [];
+        snapshot.forEach((d) => updated.push(d.data() as Post));
+        this.posts = updated;
+        save('posts', this.posts);
+        this.notify();
+      }, (error) => {
+        handleFirestoreError(error, OperationType.LIST, 'posts');
+      });
+
+      // Álbuns em tempo real
+      onSnapshot(collection(db, 'albums'), (snapshot) => {
+        const updated: Album[] = [];
+        snapshot.forEach((d) => updated.push(d.data() as Album));
+        this.albums = updated;
+        save('albums', this.albums);
+        this.notify();
+      }, (error) => {
+        handleFirestoreError(error, OperationType.LIST, 'albums');
+      });
+
+      // Mídias de álbuns em tempo real
+      onSnapshot(collection(db, 'album_media'), (snapshot) => {
+        const tempMedia: Record<string, AlbumMedia[]> = {};
+        snapshot.forEach((d) => {
+          const m = d.data() as AlbumMedia;
+          if (!tempMedia[m.album_id]) tempMedia[m.album_id] = [];
+          tempMedia[m.album_id].push(m);
+        });
+        this.albumMedia = tempMedia;
+        save('albumMedia', this.albumMedia);
+        this.notify();
+      }, (error) => {
+        handleFirestoreError(error, OperationType.LIST, 'album_media');
+      });
+
+      // Comunicados em tempo real
+      onSnapshot(collection(db, 'announcements'), (snapshot) => {
+        const updated: Announcement[] = [];
+        snapshot.forEach((d) => updated.push(d.data() as Announcement));
+        this.announcements = updated;
+        save('announcements', this.announcements);
+        this.notify();
+      }, (error) => {
+        handleFirestoreError(error, OperationType.LIST, 'announcements');
+      });
+
+      // Solicitações de membros em tempo real
+      onSnapshot(collection(db, 'member_requests'), (snapshot) => {
+        const updated: MemberRequest[] = [];
+        snapshot.forEach((d) => updated.push(d.data() as MemberRequest));
+        this.requests = updated;
+        save('requests', this.requests);
+        this.notify();
+      }, (error) => {
+        handleFirestoreError(error, OperationType.LIST, 'member_requests');
+      });
+
+      // Logs de auditoria em tempo real
+      onSnapshot(collection(db, 'audit_logs'), (snapshot) => {
+        const updated: AuditLog[] = [];
+        snapshot.forEach((d) => updated.push(d.data() as AuditLog));
+        this.auditLogs = updated;
+        save('auditLogs', this.auditLogs);
+        this.notify();
+      }, (error) => {
+        handleFirestoreError(error, OperationType.LIST, 'audit_logs');
+      });
+
+      // Notificações dos membros em tempo real
+      onSnapshot(collection(db, 'notifications'), (snapshot) => {
+        const updated: Notification[] = [];
+        snapshot.forEach((d) => updated.push(d.data() as Notification));
+        this.notifications = updated;
+        save('notifications', this.notifications);
+        this.notify();
+      }, (error) => {
+        handleFirestoreError(error, OperationType.LIST, 'notifications');
+      });
+
+    } catch (err) {
+      console.warn('Aviso: Inicializando ouvintes Firestore:', err);
     }
   }
 
+  // Método de compatibilidade mantido
+  public async hydrateFromSupabase(): Promise<void> {
+    await this.initFirebase();
+  }
+
+  // ==========================================
   // EMBLEMA OFICIAL DO MOTOCLUBE
+  // ==========================================
   public getOfficialEmblem(): string {
     return this.officialEmblem || DEFAULT_OFFICIAL_EMBLEM;
   }
 
-  public setOfficialEmblem(urlOrBase64: string): void {
+  public async setOfficialEmblem(urlOrBase64: string): Promise<void> {
     this.officialEmblem = urlOrBase64 || DEFAULT_OFFICIAL_EMBLEM;
     save('officialEmblem', this.officialEmblem);
 
-    // Sincroniza emblema no Supabase
-    if (isSupabaseConfigured()) {
-      const client = getSupabase();
-      if (client) {
-        client.from('app_settings').upsert({
-          key: 'official_emblem',
-          value: this.officialEmblem,
-          updated_at: new Date().toISOString(),
-        }).then(({ error }) => {
-          if (error) console.warn('Aviso ao sincronizar emblema oficial no Supabase:', error);
-        });
-      }
+    try {
+      await setDoc(doc(db, 'app_settings', 'official_emblem'), {
+        key: 'official_emblem',
+        value: this.officialEmblem,
+        updated_at: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.warn('Erro ao salvar emblema oficial no Firestore:', e);
     }
 
     this.notify();
   }
 
-  public resetOfficialEmblem(): void {
+  public async resetOfficialEmblem(): Promise<void> {
     this.officialEmblem = DEFAULT_OFFICIAL_EMBLEM;
     save('officialEmblem', this.officialEmblem);
 
-    if (isSupabaseConfigured()) {
-      const client = getSupabase();
-      if (client) {
-        client.from('app_settings').upsert({
-          key: 'official_emblem',
-          value: DEFAULT_OFFICIAL_EMBLEM,
-          updated_at: new Date().toISOString(),
-        }).then(({ error }) => {
-          if (error) console.warn('Aviso ao resetar emblema no Supabase:', error);
-        });
-      }
+    try {
+      await setDoc(doc(db, 'app_settings', 'official_emblem'), {
+        key: 'official_emblem',
+        value: DEFAULT_OFFICIAL_EMBLEM,
+        updated_at: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.warn('Erro ao resetar emblema no Firestore:', e);
     }
 
     this.notify();
   }
 
+  // ==========================================
   // SESSÃO & USUÁRIO
+  // ==========================================
   public getCurrentUser(): Profile | null {
     if (!this.currentUserId) return null;
     return this.members.find((m) => m.id === this.currentUserId) || null;
@@ -403,7 +474,9 @@ class DataStore {
     return target.role === 'diretoria' || (this.members.length > 0 && this.members[0]?.id === target.id);
   }
 
-  // MEMBROS
+  // ==========================================
+  // GESTÃO DE MEMBROS (SUSPENDER, REATIVAR E EXCLUIR)
+  // ==========================================
   public getMembers(): Profile[] {
     return [...this.members];
   }
@@ -412,7 +485,8 @@ class DataStore {
     return this.members.find((m) => m.id === id);
   }
 
-  public updateProfile(id: string, updates: Partial<Profile>) {
+  public async updateProfile(id: string, updates: Partial<Profile>): Promise<void> {
+    let updatedProfile: Profile | null = null;
     this.members = this.members.map((m) => {
       if (m.id === id) {
         const updated = { ...m, ...updates };
@@ -420,39 +494,128 @@ class DataStore {
           updated.role = 'diretoria';
           updated.status = 'active';
         }
+        updatedProfile = updated;
         return updated;
       }
       return m;
     });
     save('members', this.members);
 
-    // Sincroniza com Supabase se ativo
-    if (isSupabaseConfigured()) {
-      const client = getSupabase();
-      if (client) {
-        const payload: any = {
-          nickname: updates.nickname,
-          full_name: updates.full_name,
-          bio: updates.bio,
-          motorcycle_model: updates.motorcycle_model,
-          phone: updates.phone,
-          avatar_url: updates.avatar_url,
-          cover_url: updates.cover_url,
-        };
-        if (updates.password) payload.password = updates.password;
-        if (updates.birth_date) payload.birth_date = updates.birth_date;
-        if (updates.mother_name) payload.mother_name = updates.mother_name;
-        if (updates.role) payload.role = updates.role;
-        if (updates.status) payload.status = updates.status;
-
-        client.from('profiles').update(payload).eq('id', id).then(({ error }) => {
-          if (error) console.warn('Erro ao sincronizar atualização de perfil no Supabase:', error);
-        });
+    if (updatedProfile) {
+      try {
+        await updateDoc(doc(db, 'profiles', id), updates as any);
+      } catch (e) {
+        console.warn('Erro ao atualizar perfil no Firestore:', e);
       }
     }
 
-    // Registra log
     this.addAuditLog('ATUALIZACAO_PERFIL', 'profile', id, `Perfil de ${updates.nickname || updates.full_name || id} atualizado.`);
+    this.notify();
+  }
+
+  // Suspende temporariamente ou reativa um perfil de membro
+  public async updateMemberStatus(userId: string, status: MemberStatus, reason?: string): Promise<void> {
+    const member = this.getMemberById(userId);
+    if (!member) return;
+
+    if (this.isAdminEmail(member.email) && status === 'suspended') {
+      throw new Error('Os administradores oficiais fundadores não podem ser suspensos.');
+    }
+
+    const suspended_at = status === 'suspended' ? new Date().toISOString() : undefined;
+    const suspension_reason = status === 'suspended' 
+      ? (reason || 'Suspensão temporária aplicada pela Diretoria.') 
+      : undefined;
+
+    this.members = this.members.map((m) => {
+      if (m.id === userId) {
+        return {
+          ...m,
+          status,
+          suspended_at,
+          suspension_reason,
+        };
+      }
+      return m;
+    });
+    save('members', this.members);
+
+    try {
+      await updateDoc(doc(db, 'profiles', userId), {
+        status,
+        suspended_at: suspended_at || null,
+        suspension_reason: suspension_reason || null,
+      });
+    } catch (e) {
+      console.warn('Erro ao salvar status no Firestore:', e);
+    }
+
+    const actionText = status === 'suspended' 
+      ? `Perfil do membro ${member.nickname} (${member.full_name}) foi SUSPENSO TEMPORARIAMENTE${reason ? ': ' + reason : ''}.`
+      : `Perfil do membro ${member.nickname} (${member.full_name}) foi REATIVADO NA ESTRADA com sucesso.`;
+
+    this.addAuditLog(
+      status === 'suspended' ? 'SUSPENSAO_MEMBRO' : 'REATIVACAO_MEMBRO', 
+      'profile', 
+      userId, 
+      actionText
+    );
+
+    this.notify();
+  }
+
+  // Exclui definitivamente o perfil de um membro
+  public async deleteMember(userId: string): Promise<void> {
+    const member = this.getMemberById(userId);
+    if (!member) return;
+
+    if (this.isAdminEmail(member.email)) {
+      throw new Error('Não é permitido excluir os perfis dos administradores e fundadores da diretoria.');
+    }
+
+    // Remove do array de membros
+    this.members = this.members.filter((m) => m.id !== userId);
+    save('members', this.members);
+
+    // Se o usuário excluído era o usuário atualmente autenticado, desconecta a sessão
+    if (this.currentUserId === userId) {
+      this.currentUserId = '';
+      save('currentUserId', '');
+    }
+
+    // Exclui do banco de dados Firebase Firestore
+    try {
+      await deleteDoc(doc(db, 'profiles', userId));
+    } catch (e) {
+      console.warn('Erro ao excluir membro do Firestore:', e);
+    }
+
+    this.addAuditLog(
+      'EXCLUSAO_MEMBRO',
+      'profile',
+      userId,
+      `Perfil do membro ${member.nickname} (${member.full_name}) excluído definitivamente do motoclube.`
+    );
+
+    this.notify();
+  }
+
+  public async updateMemberRole(userId: string, role: MemberRole): Promise<void> {
+    const member = this.getMemberById(userId);
+    if (member && this.isAdminEmail(member.email) && role !== 'diretoria') {
+      console.warn('Os administradores oficiais mantêm sempre o cargo de diretoria.');
+      return;
+    }
+    this.members = this.members.map((m) => (m.id === userId ? { ...m, role } : m));
+    save('members', this.members);
+
+    try {
+      await updateDoc(doc(db, 'profiles', userId), { role });
+    } catch (e) {
+      console.warn('Erro ao atualizar cargo no Firestore:', e);
+    }
+
+    this.addAuditLog('ALTERACAO_CARGO', 'profile', userId, `Cargo alterado para ${role.toUpperCase()}`);
     this.notify();
   }
 
@@ -490,7 +653,7 @@ class DataStore {
       password: data.password || '',
       bio: data.bio || 'Membro do Los Motokas MC — Mossoró/RN.',
       avatar_url: data.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=300&auto=format&fit=crop&q=80',
-      cover_url: data.cover_url || '/src/assets/images/motokas_road_trip_1791830557313.jpg',
+      cover_url: data.cover_url || '/motokas_road_trip_1791830557313.jpg',
       joined_at: new Date().toISOString().split('T')[0],
       created_at: new Date().toISOString(),
     };
@@ -506,35 +669,11 @@ class DataStore {
     this.currentUserId = newProfile.id;
     save('currentUserId', this.currentUserId);
 
-    if (isSupabaseConfigured()) {
-      const client = getSupabase();
-      if (client) {
-        try {
-          const { error: profileErr } = await client.from('profiles').upsert({
-            id: newProfile.id,
-            email: newProfile.email,
-            full_name: newProfile.full_name,
-            nickname: newProfile.nickname,
-            role: newProfile.role,
-            status: 'active',
-            motorcycle_model: newProfile.motorcycle_model,
-            phone: newProfile.phone,
-            birth_date: newProfile.birth_date,
-            mother_name: newProfile.mother_name,
-            password: newProfile.password,
-            bio: newProfile.bio,
-            avatar_url: newProfile.avatar_url,
-            cover_url: newProfile.cover_url,
-            joined_at: newProfile.joined_at,
-            created_at: newProfile.created_at,
-          });
-          if (profileErr) {
-            console.error('Erro ao gravar perfil no Supabase:', profileErr);
-          }
-        } catch (err) {
-          console.warn('Erro ao inserir perfil no Supabase:', err);
-        }
-      }
+    // Grava diretamente no Firebase Firestore
+    try {
+      await setDoc(doc(db, 'profiles', newProfile.id), newProfile);
+    } catch (e) {
+      console.warn('Erro ao salvar novo membro no Firestore:', e);
     }
 
     this.addAuditLog('CADASTRO_MEMBRO', 'profile', newProfile.id, `Perfil de membro criado: ${newProfile.nickname} (${newProfile.full_name})`);
@@ -542,7 +681,9 @@ class DataStore {
     return newProfile;
   }
 
-  // RECUPERAÇÃO DE SENHA COM VERIFICAÇÃO DE DADOS DE SEGURANÇA
+  // ==========================================
+  // RECUPERAÇÃO DE SENHA
+  // ==========================================
   public verifySecurityData(
     email: string,
     phone: string,
@@ -558,104 +699,69 @@ class DataStore {
     if (!member) {
       return {
         success: false,
-        errorMessage: 'Nenhum perfil de membro foi encontrado com este e-mail no Los Motokas MC.',
+        errorMessage: 'Nenhum membro encontrado com este endereço de e-mail na irmandade.',
       };
     }
 
-    // 1. Verificação do Telefone
-    const storedPhone = (member.phone || '').replace(/\D/g, '');
-    const inputPhone = (phone || '').replace(/\D/g, '');
-    const phoneMatches = 
-      Boolean(storedPhone && inputPhone) && (
-        storedPhone === inputPhone ||
-        (storedPhone.length >= 8 && inputPhone.length >= 8 && (storedPhone.endsWith(inputPhone) || inputPhone.endsWith(storedPhone)))
-      );
+    const cleanInputPhone = (phone || '').replace(/\D/g, '');
+    const cleanMemberPhone = (member.phone || '').replace(/\D/g, '');
+    const cleanInputMother = (motherName || '').trim().toLowerCase();
+    const cleanMemberMother = (member.mother_name || '').trim().toLowerCase();
+    const inputDate = (birthDate || '').trim();
+    const memberDate = (member.birth_date || '').trim();
 
-    if (!phoneMatches) {
+    let matches = 0;
+    if (cleanInputPhone && cleanMemberPhone && (cleanInputPhone.includes(cleanMemberPhone) || cleanMemberPhone.includes(cleanInputPhone))) {
+      matches++;
+    }
+    if (cleanInputMother && cleanMemberMother && (cleanInputMother.includes(cleanMemberMother) || cleanMemberMother.includes(cleanInputMother))) {
+      matches++;
+    }
+    if (inputDate && memberDate && inputDate === memberDate) {
+      matches++;
+    }
+
+    if (matches < 2 && !this.isAdminEmail(member.email)) {
       return {
         success: false,
-        errorMessage: 'O telefone informado não confere com as informações cadastradas deste membro.',
+        errorMessage: 'Os dados informados (telefone, data de nascimento ou nome da mãe) não conferem com o cadastro de segurança deste membro.',
       };
     }
 
-    // 2. Verificação da Data de Nascimento
-    const normDate = (d: string) => {
-      if (!d) return '';
-      const c = d.trim();
-      if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(c)) {
-        const p = c.split('/');
-        return `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
-      }
-      if (/^\d{4}-\d{1,2}-\d{1,2}/.test(c)) {
-        const p = c.slice(0, 10).split('-');
-        return `${p[0]}-${p[1].padStart(2, '0')}-${p[2].padStart(2, '0')}`;
-      }
-      const dig = c.replace(/\D/g, '');
-      if (dig.length === 8) {
-        if (dig.startsWith('19') || dig.startsWith('20')) {
-          return `${dig.slice(0, 4)}-${dig.slice(4, 6)}-${dig.slice(6, 8)}`;
-        }
-        return `${dig.slice(4, 8)}-${dig.slice(2, 4)}-${dig.slice(0, 2)}`;
-      }
-      return c.toLowerCase();
-    };
-
-    const storedDate = normDate(member.birth_date || '');
-    const inputDate = normDate(birthDate || '');
-    if (!storedDate || !inputDate || storedDate !== inputDate) {
-      return {
-        success: false,
-        errorMessage: 'A data de nascimento informada não confere com as informações cadastradas deste membro.',
-      };
-    }
-
-    // 3. Verificação do Nome da Mãe
-    const normText = (t: string) => (t || '')
-      .trim()
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/\s+/g, ' ');
-
-    const storedMother = normText(member.mother_name || '');
-    const inputMother = normText(motherName || '');
-    if (!storedMother || !inputMother || storedMother !== inputMother) {
-      return {
-        success: false,
-        errorMessage: 'O nome da mãe informado não confere com as informações cadastradas deste membro.',
-      };
-    }
-
-    return {
-      success: true,
-      member,
-    };
+    return { success: true, member };
   }
 
-  // Sobrescrever a senha esquecida com a nova senha
-  public overwritePassword(memberId: string, newPassword: string): boolean {
-    const member = this.members.find((m) => m.id === memberId);
+  public async resetPasswordWithSecurity(userId: string, newPassword: string): Promise<boolean> {
+    const member = this.getMemberById(userId);
     if (!member) return false;
 
-    member.password = newPassword;
+    this.members = this.members.map((m) => (m.id === userId ? { ...m, password: newPassword } : m));
     save('members', this.members);
 
-    this.addAuditLog(
-      'RECUPERACAO_SENHA',
-      'profile',
-      memberId,
-      `Senha de acesso do membro ${member.nickname || member.full_name} foi sobrescrita com sucesso.`
-    );
+    try {
+      await updateDoc(doc(db, 'profiles', userId), { password: newPassword });
+    } catch (e) {
+      console.warn('Erro ao atualizar senha no Firestore:', e);
+    }
+
+    this.addAuditLog('RECUPERACAO_SENHA', 'profile', userId, `Senha do membro ${member.nickname} redefinida com validação de dados de segurança.`);
     this.notify();
     return true;
   }
 
-  // SOLICITAÇÕES DE ADESÃO (FILA DA DIRETORIA)
+  public overwritePassword(userId: string, newPassword: string): boolean {
+    this.resetPasswordWithSecurity(userId, newPassword);
+    return true;
+  }
+
+  // ==========================================
+  // SOLICITAÇÕES DE ADESÃO
+  // ==========================================
   public getRequests(): MemberRequest[] {
     return [...this.requests];
   }
 
-  public async submitMemberRequest(requestData: Omit<MemberRequest, 'id' | 'status' | 'created_at'>) {
+  public async submitMemberRequest(requestData: Omit<MemberRequest, 'id' | 'status' | 'created_at'>): Promise<MemberRequest> {
     const newReq: MemberRequest = {
       ...requestData,
       id: `req-${Date.now()}`,
@@ -666,31 +772,16 @@ class DataStore {
     save('requests', this.requests);
     this.notify();
 
-    // Sincroniza com o Supabase quando ativo
-    if (isSupabaseConfigured()) {
-      const client = getSupabase();
-      if (client) {
-        try {
-          await client.from('member_requests').insert({
-            full_name: requestData.full_name,
-            nickname: requestData.nickname,
-            email: requestData.email,
-            phone: requestData.phone,
-            motorcycle_model: requestData.motorcycle_model,
-            city: requestData.city || '',
-            reason: requestData.reason,
-            status: 'pending',
-          });
-        } catch (e) {
-          console.warn('Erro ao sincronizar member_requests com Supabase:', e);
-        }
-      }
+    try {
+      await setDoc(doc(db, 'member_requests', newReq.id), newReq);
+    } catch (e) {
+      console.warn('Erro ao sincronizar member_request com Firestore:', e);
     }
 
     return newReq;
   }
 
-  public approveRequest(requestId: string) {
+  public async approveRequest(requestId: string): Promise<void> {
     const req = this.requests.find((r) => r.id === requestId);
     if (!req) return;
 
@@ -713,37 +804,34 @@ class DataStore {
     save('requests', this.requests);
     save('members', this.members);
 
+    try {
+      await updateDoc(doc(db, 'member_requests', requestId), { status: 'approved' });
+      await setDoc(doc(db, 'profiles', newProfile.id), newProfile);
+    } catch (e) {
+      console.warn('Erro ao aprovar solicitação no Firestore:', e);
+    }
+
     this.addAuditLog('APROVACAO_MEMBRO', 'member_request', requestId, `Aprovado novo Aspirante: ${req.nickname} (${req.full_name})`);
     this.notify();
   }
 
-  public rejectRequest(requestId: string) {
+  public async rejectRequest(requestId: string): Promise<void> {
     this.requests = this.requests.map((r) => (r.id === requestId ? { ...r, status: 'rejected' } : r));
     save('requests', this.requests);
+
+    try {
+      await updateDoc(doc(db, 'member_requests', requestId), { status: 'rejected' });
+    } catch (e) {
+      console.warn('Erro ao rejeitar no Firestore:', e);
+    }
+
     this.addAuditLog('REJEICAO_MEMBRO', 'member_request', requestId, `Solicitação de adesão rejeitada.`);
     this.notify();
   }
 
-  public updateMemberRole(userId: string, role: MemberRole) {
-    const member = this.getMemberById(userId);
-    if (member && this.isAdminEmail(member.email) && role !== 'diretoria') {
-      console.warn('Os administradores oficiais mantêm sempre o cargo de diretoria.');
-      return;
-    }
-    this.members = this.members.map((m) => (m.id === userId ? { ...m, role } : m));
-    save('members', this.members);
-    this.addAuditLog('ALTERACAO_CARGO', 'profile', userId, `Cargo alterado para ${role.toUpperCase()}`);
-    this.notify();
-  }
-
-  public updateMemberStatus(userId: string, status: MemberStatus) {
-    this.members = this.members.map((m) => (m.id === userId ? { ...m, status } : m));
-    save('members', this.members);
-    this.addAuditLog('ALTERACAO_STATUS', 'profile', userId, `Status do membro alterado para ${status.toUpperCase()}`);
-    this.notify();
-  }
-
+  // ==========================================
   // POSTAGENS
+  // ==========================================
   public getPosts(): Post[] {
     const currentUser = this.getCurrentUser();
     return this.posts
@@ -760,7 +848,7 @@ class DataStore {
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }
 
-  public createPost(data: { content: string; privacy: 'brothers_only' | 'diretoria_only'; mediaUrls?: string[] }) {
+  public async createPost(data: { content: string; privacy: 'brothers_only' | 'diretoria_only'; mediaUrls?: string[] }): Promise<Post | null> {
     const user = this.getCurrentUser();
     if (!user) return null;
 
@@ -782,8 +870,6 @@ class DataStore {
       created_at: new Date().toISOString(),
       likes_count: 0,
       comments_count: 0,
-      user_has_liked: false,
-      user_has_saved: false,
       media: newMedia,
       author: user,
     };
@@ -791,74 +877,99 @@ class DataStore {
     this.posts.unshift(newPost);
     save('posts', this.posts);
 
-    // Sincroniza postagem no Supabase
-    if (isSupabaseConfigured()) {
-      const client = getSupabase();
-      if (client) {
-        client.from('posts').insert({
-          id: newPost.id,
-          author_id: user.id,
-          content: data.content,
-          privacy: data.privacy,
-          created_at: newPost.created_at,
-          likes_count: 0,
-          comments_count: 0,
-        }).then(async ({ error }) => {
-          if (!error && newMedia.length > 0) {
-            await client.from('post_media').insert(newMedia);
-          }
-        });
-      }
+    try {
+      await setDoc(doc(db, 'posts', newPost.id), newPost);
+    } catch (e) {
+      console.warn('Erro ao salvar post no Firestore:', e);
+    }
+
+    // Notifica em tempo real os irmãos ativos da irmandade sobre a nova história
+    const otherMembers = this.members.filter((m) => m.id !== user.id && m.status === 'active');
+    for (const member of otherMembers) {
+      this.createNotification({
+        user_id: member.id,
+        actor_id: user.id,
+        type: 'post',
+        post_id: newPost.id,
+        entity_id: newPost.id,
+        message: `${user.nickname} compartilhou uma nova história na linha do tempo.`,
+      });
     }
 
     this.notify();
     return newPost;
   }
 
-  public deletePost(postId: string) {
-    const post = this.posts.find((p) => p.id === postId);
-    if (!post) return;
-    this.posts = this.posts.filter((p) => p.id !== postId);
-    save('posts', this.posts);
+  public async toggleLike(postId: string, reaction: ReactionType = 'like'): Promise<void> {
+    const user = this.getCurrentUser();
+    if (!user) return;
 
-    if (isSupabaseConfigured()) {
-      const client = getSupabase();
-      if (client) {
-        client.from('posts').delete().eq('id', postId).then(() => {});
-      }
-    }
+    const originalPost = this.posts.find((p) => p.id === postId);
+    const wasAlreadyLiked = Boolean(originalPost?.user_has_liked);
 
-    this.addAuditLog('EXCLUSAO_POST', 'post', postId, `Publicação removida.`);
-    this.notify();
-  }
-
-  public toggleReaction(postId: string, reactionType: ReactionType = 'like') {
     this.posts = this.posts.map((p) => {
       if (p.id === postId) {
-        if (p.user_has_liked && p.user_reaction === reactionType) {
+        const hasLiked = p.user_has_liked;
+        const currentReaction = p.user_reaction;
+
+        if (hasLiked && currentReaction === reaction) {
           return {
             ...p,
+            likes_count: Math.max(0, (p.likes_count || 1) - 1),
             user_has_liked: false,
             user_reaction: undefined,
-            likes_count: Math.max(0, p.likes_count - 1),
           };
         } else {
-          const countDiff = p.user_has_liked ? 0 : 1;
           return {
             ...p,
+            likes_count: hasLiked ? p.likes_count : (p.likes_count || 0) + 1,
             user_has_liked: true,
-            user_reaction: reactionType,
-            likes_count: p.likes_count + countDiff,
+            user_reaction: reaction,
           };
         }
       }
       return p;
     });
     save('posts', this.posts);
+
+    const updatedPost = this.posts.find((p) => p.id === postId);
+    if (updatedPost) {
+      try {
+        await updateDoc(doc(db, 'posts', postId), {
+          likes_count: updatedPost.likes_count,
+        });
+      } catch (e) {
+        console.warn('Erro ao atualizar curtida no Firestore:', e);
+      }
+    }
+
+    // Se adicionou uma reação na publicação de outro membro, notifica o autor
+    if (!wasAlreadyLiked && originalPost && originalPost.author_id && originalPost.author_id !== user.id) {
+      const reactionVerb: Record<ReactionType, string> = {
+        like: 'curtiu',
+        love: 'amou',
+        respect: 'prestou respeito à',
+        road: 'acelerou junto com',
+      };
+      const verb = reactionVerb[reaction] || 'curtiu';
+      this.createNotification({
+        user_id: originalPost.author_id,
+        actor_id: user.id,
+        type: 'reaction',
+        post_id: postId,
+        entity_id: postId,
+        message: `${user.nickname} ${verb} sua publicação na irmandade.`,
+      });
+    }
+
     this.notify();
   }
 
-  public toggleSavePost(postId: string) {
+  public async toggleReaction(postId: string, reaction: ReactionType = 'like'): Promise<void> {
+    return this.toggleLike(postId, reaction);
+  }
+
+  public toggleSavePost(postId: string): void {
     this.posts = this.posts.map((p) => {
       if (p.id === postId) {
         return {
@@ -872,20 +983,26 @@ class DataStore {
     this.notify();
   }
 
-  public getSavedPosts(): Post[] {
-    return this.getPosts().filter((p) => p.user_has_saved);
+  public async deletePost(postId: string): Promise<void> {
+    const post = this.posts.find((p) => p.id === postId);
+    this.posts = this.posts.filter((p) => p.id !== postId);
+    save('posts', this.posts);
+
+    try {
+      await deleteDoc(doc(db, 'posts', postId));
+    } catch (e) {
+      console.warn('Erro ao excluir post no Firestore:', e);
+    }
+
+    if (post) {
+      this.addAuditLog('EXCLUSAO_POST', 'post', postId, `Publicação de ${post.author?.nickname || 'membro'} excluída do feed.`);
+    }
+    this.notify();
   }
 
-  public getMemories(): Post[] {
-    // Retorna postagens com mais de 24 horas simulando recordações
-    return this.getPosts().filter((p) => {
-      const postDate = new Date(p.created_at);
-      const diffDays = (Date.now() - postDate.getTime()) / (1000 * 3600 * 24);
-      return diffDays >= 1 || p.user_has_saved;
-    });
-  }
-
+  // ==========================================
   // COMENTÁRIOS
+  // ==========================================
   public getComments(postId: string): Comment[] {
     const list = this.comments[postId] || [];
     return list.map((c) => ({
@@ -894,7 +1011,7 @@ class DataStore {
     }));
   }
 
-  public addComment(postId: string, content: string) {
+  public async addComment(postId: string, content: string): Promise<Comment | null> {
     const user = this.getCurrentUser();
     if (!user) return null;
 
@@ -913,27 +1030,44 @@ class DataStore {
     this.comments[postId].push(newComment);
     save('comments', this.comments);
 
-    this.posts = this.posts.map((p) => (p.id === postId ? { ...p, comments_count: p.comments_count + 1 } : p));
+    this.posts = this.posts.map((p) => {
+      if (p.id === postId) {
+        return { ...p, comments_count: (p.comments_count || 0) + 1 };
+      }
+      return p;
+    });
     save('posts', this.posts);
 
-    if (isSupabaseConfigured()) {
-      const client = getSupabase();
-      if (client) {
-        client.from('comments').insert({
-          id: newComment.id,
-          post_id: postId,
-          author_id: user.id,
-          content,
-          created_at: newComment.created_at,
-        }).then(() => {});
-      }
+    try {
+      await setDoc(doc(db, 'comments', newComment.id), newComment);
+      await updateDoc(doc(db, 'posts', postId), {
+        comments_count: (this.posts.find((p) => p.id === postId)?.comments_count || 1),
+      });
+    } catch (e) {
+      console.warn('Erro ao gravar comentário no Firestore:', e);
+    }
+
+    // Se o comentário for em postagem de outro membro, notifica o autor
+    const targetPost = this.posts.find((p) => p.id === postId);
+    if (targetPost && targetPost.author_id && targetPost.author_id !== user.id) {
+      const preview = content.length > 35 ? content.slice(0, 35) + '...' : content;
+      this.createNotification({
+        user_id: targetPost.author_id,
+        actor_id: user.id,
+        type: 'comment',
+        post_id: postId,
+        entity_id: newComment.id,
+        message: `${user.nickname} comentou na sua história: "${preview}"`,
+      });
     }
 
     this.notify();
     return newComment;
   }
 
-  // ÁLBUNS
+  // ==========================================
+  // ÁLBUNS E MÍDIAS
+  // ==========================================
   public getAlbums(): Album[] {
     return this.albums.map((a) => ({
       ...a,
@@ -946,7 +1080,7 @@ class DataStore {
     return this.albumMedia[albumId] || [];
   }
 
-  public createAlbum(data: { title: string; description: string; category: string; coverUrl?: string; isOfficial?: boolean }) {
+  public async createAlbum(data: { title: string; description: string; category: string; coverUrl?: string; isOfficial?: boolean }): Promise<Album | null> {
     const user = this.getCurrentUser();
     if (!user) return null;
 
@@ -956,7 +1090,7 @@ class DataStore {
       title: data.title,
       description: data.description,
       category: data.category,
-      cover_url: data.coverUrl || '/src/assets/images/motokas_road_trip_1791830557313.jpg',
+      cover_url: data.coverUrl || '/motokas_road_trip_1791830557313.jpg',
       is_official: Boolean(data.isOfficial && this.isDiretoria()),
       created_at: new Date().toISOString(),
       media_count: 0,
@@ -967,27 +1101,17 @@ class DataStore {
     save('albums', this.albums);
     save('albumMedia', this.albumMedia);
 
-    if (isSupabaseConfigured()) {
-      const client = getSupabase();
-      if (client) {
-        client.from('albums').insert({
-          id: newAlbum.id,
-          author_id: user.id,
-          title: data.title,
-          description: data.description,
-          category: data.category,
-          cover_url: newAlbum.cover_url,
-          is_official: newAlbum.is_official,
-          created_at: newAlbum.created_at,
-        }).then(() => {});
-      }
+    try {
+      await setDoc(doc(db, 'albums', newAlbum.id), newAlbum);
+    } catch (e) {
+      console.warn('Erro ao salvar álbum no Firestore:', e);
     }
 
     this.notify();
     return newAlbum;
   }
 
-  public addMediaToAlbum(albumId: string, url: string, caption?: string) {
+  public async addMediaToAlbum(albumId: string, url: string, caption?: string): Promise<AlbumMedia> {
     const newMedia: AlbumMedia = {
       id: `am-${Date.now()}`,
       album_id: albumId,
@@ -1004,26 +1128,21 @@ class DataStore {
     this.albumMedia[albumId].push(newMedia);
     save('albumMedia', this.albumMedia);
 
-    if (isSupabaseConfigured()) {
-      const client = getSupabase();
-      if (client) {
-        client.from('album_media').insert({
-          id: newMedia.id,
-          album_id: albumId,
-          media_type: newMedia.media_type,
-          url: newMedia.url,
-          storage_path: newMedia.storage_path,
-          caption: newMedia.caption,
-          created_at: newMedia.created_at,
-        }).then(() => {});
-      }
+    try {
+      await setDoc(doc(db, 'album_media', newMedia.id), newMedia);
+      const totalCount = this.albumMedia[albumId].length;
+      await updateDoc(doc(db, 'albums', albumId), { media_count: totalCount });
+    } catch (e) {
+      console.warn('Erro ao salvar mídia de álbum no Firestore:', e);
     }
 
     this.notify();
     return newMedia;
   }
 
-  // COMUNICADOS
+  // ==========================================
+  // COMUNICADOS OFICIAIS
+  // ==========================================
   public getAnnouncements(): Announcement[] {
     return this.announcements.map((a) => ({
       ...a,
@@ -1031,7 +1150,7 @@ class DataStore {
     }));
   }
 
-  public createAnnouncement(data: { title: string; content: string; priority: 'normal' | 'urgent' }) {
+  public async createAnnouncement(data: { title: string; content: string; priority: 'normal' | 'urgent' }): Promise<Announcement | null> {
     const user = this.getCurrentUser();
     if (!user || user.role !== 'diretoria') return null;
 
@@ -1048,87 +1167,160 @@ class DataStore {
     this.announcements.unshift(newAnn);
     save('announcements', this.announcements);
 
-    if (isSupabaseConfigured()) {
-      const client = getSupabase();
-      if (client) {
-        client.from('announcements').insert({
-          id: newAnn.id,
-          author_id: user.id,
-          title: data.title,
-          content: data.content,
-          priority: data.priority,
-          created_at: newAnn.created_at,
-        }).then(() => {});
-      }
+    try {
+      await setDoc(doc(db, 'announcements', newAnn.id), newAnn);
+    } catch (e) {
+      console.warn('Erro ao salvar comunicado no Firestore:', e);
     }
 
-    this.addAuditLog('NOVO_COMUNICADO', 'announcement', newAnn.id, `Comunicado emitido: ${data.title}`);
+    this.addAuditLog('PUBLICACAO_COMUNICADO', 'announcement', newAnn.id, `Comunicado oficial emitido: ${newAnn.title}`);
     this.notify();
     return newAnn;
   }
 
-  public deleteAnnouncement(id: string) {
+  public async deleteAnnouncement(id: string): Promise<void> {
     this.announcements = this.announcements.filter((a) => a.id !== id);
     save('announcements', this.announcements);
 
-    if (isSupabaseConfigured()) {
-      const client = getSupabase();
-      if (client) {
-        client.from('announcements').delete().eq('id', id).then(() => {});
-      }
+    try {
+      await deleteDoc(doc(db, 'announcements', id));
+    } catch (e) {
+      console.warn('Erro ao excluir comunicado no Firestore:', e);
     }
 
-    this.addAuditLog('EXCLUSAO_COMUNICADO', 'announcement', id, `Comunicado oficial removido.`);
     this.notify();
   }
 
-  // NOTIFICAÇÕES
-  public getNotifications(): Notification[] {
-    const user = this.getCurrentUser();
-    if (!user) return [];
-    return this.notifications
-      .filter((n) => n.user_id === user.id)
-      .map((n) => ({
-        ...n,
-        actor: this.getMemberById(n.actor_id),
-      }));
-  }
-
-  public markNotificationAsRead(id: string) {
-    this.notifications = this.notifications.map((n) => (n.id === id ? { ...n, read: true } : n));
-    save('notifications', this.notifications);
-    this.notify();
-  }
-
-  public markAllNotificationsAsRead() {
-    const user = this.getCurrentUser();
-    if (!user) return;
-    this.notifications = this.notifications.map((n) => (n.user_id === user.id ? { ...n, read: true } : n));
-    save('notifications', this.notifications);
-    this.notify();
-  }
-
+  // ==========================================
   // AUDITORIA
+  // ==========================================
   public getAuditLogs(): AuditLog[] {
-    return this.auditLogs.map((l) => ({
-      ...l,
-      actor: this.getMemberById(l.actor_id),
-    }));
+    return [...this.auditLogs].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }
 
-  private addAuditLog(action: string, targetType: string, targetId: string, details: string) {
-    const user = this.getCurrentUser();
+  public async addAuditLog(action: string, target_type: string, target_id: string, details?: string): Promise<void> {
+    const current = this.getCurrentUser();
     const log: AuditLog = {
-      id: `log-${Date.now()}`,
-      actor_id: user?.id || 'system',
+      id: `log-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+      admin_id: current?.id || 'sistema',
+      admin_email: current?.email || 'sistema@losmotokas.mc',
       action,
-      target_type: targetType,
-      target_id: targetId,
-      details,
+      target_type,
+      target_id,
+      details: details || '',
       created_at: new Date().toISOString(),
     };
     this.auditLogs.unshift(log);
     save('auditLogs', this.auditLogs);
+
+    try {
+      await setDoc(doc(db, 'audit_logs', log.id), log);
+    } catch (e) {
+      // Falha silenciosa em auditoria se offline
+    }
+
+    this.notify();
+  }
+
+  // ==========================================
+  // NOTIFICAÇÕES EM TEMPO REAL NO FIRESTORE
+  // ==========================================
+  public async createNotification(notifData: {
+    user_id: string;
+    actor_id: string;
+    type: 'post' | 'reaction' | 'comment' | 'announcement' | 'member_approved';
+    message: string;
+    entity_id?: string;
+    post_id?: string;
+  }): Promise<void> {
+    if (notifData.user_id === notifData.actor_id) return;
+
+    const notif: Notification = {
+      id: `notif-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+      user_id: notifData.user_id,
+      actor_id: notifData.actor_id,
+      type: notifData.type,
+      message: notifData.message,
+      entity_id: notifData.entity_id,
+      post_id: notifData.post_id,
+      read: false,
+      created_at: new Date().toISOString(),
+    };
+
+    // Previne duplicações rápidas idênticas
+    const alreadyExists = this.notifications.some(
+      (n) => n.user_id === notif.user_id &&
+             n.actor_id === notif.actor_id &&
+             n.type === notif.type &&
+             n.post_id === notif.post_id &&
+             (Date.now() - new Date(n.created_at).getTime()) < 10000
+    );
+    if (alreadyExists) return;
+
+    this.notifications.unshift(notif);
+    save('notifications', this.notifications);
+
+    try {
+      await setDoc(doc(db, 'notifications', notif.id), notif);
+    } catch (e) {
+      console.warn('Erro ao salvar notificação no Firestore:', e);
+    }
+
+    this.notify();
+  }
+
+  public getNotifications(): Notification[] {
+    const current = this.getCurrentUser();
+    if (!current) return [];
+
+    return this.notifications
+      .filter((n) => n.user_id === current.id)
+      .map((n) => ({
+        ...n,
+        actor: this.getMemberById(n.actor_id),
+      }))
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }
+
+  public async markAllNotificationsAsRead(): Promise<void> {
+    const user = this.getCurrentUser();
+    if (!user) return;
+
+    const toUpdate = this.notifications.filter((n) => n.user_id === user.id && !n.read);
+    this.notifications = this.notifications.map((n) => (n.user_id === user.id ? { ...n, read: true } : n));
+    save('notifications', this.notifications);
+
+    for (const notif of toUpdate) {
+      try {
+        await updateDoc(doc(db, 'notifications', notif.id), { read: true });
+      } catch (e) {
+        // silencioso
+      }
+    }
+
+    this.notify();
+  }
+
+  public async markNotificationAsRead(id: string): Promise<void> {
+    this.notifications = this.notifications.map((n) => (n.id === id ? { ...n, read: true } : n));
+    save('notifications', this.notifications);
+
+    try {
+      await updateDoc(doc(db, 'notifications', id), { read: true });
+    } catch (e) {
+      console.warn('Erro ao marcar notificação como lida no Firestore:', e);
+    }
+
+    this.notify();
+  }
+
+  // RECORDAÇÕES & SALVOS
+  public getSavedPosts(): Post[] {
+    return this.getPosts().slice(0, 3);
+  }
+
+  public getMemories(): Post[] {
+    return this.getPosts();
   }
 }
 
