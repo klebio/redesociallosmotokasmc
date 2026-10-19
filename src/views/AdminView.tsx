@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { MemberRequest, Profile, AuditLog, MemberRole, MemberStatus } from '../types/database';
 import { store } from '../services/store';
+import { getInviteUrl, getWhatsAppInviteUrl } from '../lib/invite';
 
 interface AdminViewProps {
   currentUser: Profile | null;
@@ -119,9 +120,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
     e.target.value = '';
   };
 
-  const inviteUrl = typeof window !== 'undefined' 
-    ? `${window.location.origin}${window.location.pathname}?convite=losmotokas` 
-    : '';
+  const inviteUrl = getInviteUrl();
 
   const handleCopyInvite = () => {
     navigator.clipboard.writeText(inviteUrl);
@@ -307,9 +306,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
               </button>
 
               <a
-                href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
-                  `🏍️ *LOS MOTOKAS MC - Convite Oficial da Irmandade*\n\nIrmão, você foi convidado pela Diretoria para se juntar à nossa rede social oficial e privativa!\n\nAcesse o link abaixo para criar seu perfil de membro:\n${inviteUrl}`
-                )}`}
+                href={getWhatsAppInviteUrl()}
                 target="_blank"
                 rel="noreferrer"
                 className="px-3 py-1 bg-[#25D366] hover:bg-[#20ba59] text-white font-bold rounded-md transition-colors flex items-center gap-1.5 shadow-2xs"

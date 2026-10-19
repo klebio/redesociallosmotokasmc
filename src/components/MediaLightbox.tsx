@@ -62,6 +62,7 @@ export const MediaLightbox: React.FC<MediaLightboxProps> = ({
               src={mediaUrl}
               controls
               autoPlay
+              playsInline
               className="max-h-[80vh] max-w-full rounded-lg shadow-2xl"
             />
           ) : null

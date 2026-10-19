@@ -191,37 +191,51 @@ export const PostCard: React.FC<PostCardProps> = ({
           <div className={`grid gap-1 bg-neutral-950 ${
             mediaList.length === 1 ? 'grid-cols-1' : 'grid-cols-2'
           }`}>
-            {mediaList.map((media, idx) => (
-              <div
-                key={media.id || idx}
-                onClick={() => setLightboxIndex(idx)}
-                className="relative cursor-pointer group overflow-hidden max-h-[480px] flex items-center justify-center bg-black"
-              >
-                {media.media_type === 'video' ? (
-                  media.url && media.url.trim() !== '' ? (
-                    <video
-                      src={media.url}
-                      className="w-full h-full object-cover group-hover:scale-101 transition-transform"
+            {mediaList.map((media, idx) => {
+              const isVideo = media.media_type === 'video' ||
+                media.url.endsWith('.mp4') ||
+                media.url.endsWith('.mov') ||
+                media.url.endsWith('.webm') ||
+                media.url.endsWith('.mkv') ||
+                media.url.includes('video') ||
+                media.url.startsWith('data:video');
+
+              return (
+                <div
+                  key={media.id || idx}
+                  className="relative group overflow-hidden max-h-[520px] flex items-center justify-center bg-black"
+                >
+                  {isVideo ? (
+                    media.url && media.url.trim() !== '' ? (
+                      <video
+                        src={media.url}
+                        controls
+                        playsInline
+                        preload="metadata"
+                        className="w-full max-h-[520px] object-contain bg-black"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    ) : null
+                  ) : (
+                    <img
+                      src={media.url || '/escudo_oficial.jpg'}
+                      alt={media.caption || 'Foto da publicação'}
+                      onClick={() => setLightboxIndex(idx)}
+                      className="w-full h-full object-cover group-hover:opacity-95 transition-opacity cursor-pointer"
+                      referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '/escudo_oficial.jpg';
+                      }}
                     />
-                  ) : null
-                ) : (
-                  <img
-                    src={media.url || '/escudo_oficial.jpg'}
-                    alt={media.caption || 'Foto da publicação'}
-                    className="w-full h-full object-cover group-hover:opacity-95 transition-opacity"
-                    referrerPolicy="no-referrer"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = '/escudo_oficial.jpg';
-                    }}
-                  />
-                )}
-                {media.caption && (
-                  <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-3 text-white text-xs">
-                    {media.caption}
-                  </div>
-                )}
-              </div>
-            ))}
+                  )}
+                  {media.caption && (
+                    <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-3 text-white text-xs pointer-events-none">
+                      {media.caption}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { store } from '../services/store';
 import { Profile, Notification } from '../types/database';
+import { getInviteUrl, getWhatsAppInviteUrl } from '../lib/invite';
 
 interface NavbarProps {
   currentTab: string;
@@ -601,28 +602,28 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </button>
                   <button
                     onClick={() => {
-                      const url = `${window.location.origin}${window.location.pathname}?convite=losmotokas`;
+                      const url = getInviteUrl();
                       navigator.clipboard.writeText(url);
                       setCopiedInvite(true);
                       setTimeout(() => setCopiedInvite(false), 2500);
                     }}
-                    className="w-full text-left px-3 py-2 text-xs font-semibold text-[#1877F2] hover:bg-blue-50 flex items-center justify-between gap-2.5"
+                    className="w-full text-left px-3 py-2 text-xs font-semibold text-[#1877F2] hover:bg-blue-50 flex items-center justify-between gap-2.5 cursor-pointer"
                   >
                     <span className="flex items-center gap-2">
-                      <UserPlus className="w-4 h-4 text-[#1877F2]" />
-                      <span>Copiar Link de Convite (Novo Membro)</span>
-                    </span>
-                    {copiedInvite && <span className="text-[10px] bg-blue-100 text-[#1877F2] px-1.5 py-0.5 rounded font-bold">Copiado!</span>}
-                  </button>
-                  <a
-                    href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`Irmão, aqui está o seu convite oficial para criar seu perfil na rede social exclusiva do Los Motokas MC (Mossoró/RN): ${typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}?convite=losmotokas` : ''}`)}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="w-full text-left px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 flex items-center gap-2"
-                  >
-                    <Share2 className="w-4 h-4 text-emerald-600" />
-                    <span>Convidar Irmão pelo WhatsApp</span>
-                  </a>
+                       <UserPlus className="w-4 h-4 text-[#1877F2]" />
+                       <span>Copiar Link de Convite Oficial</span>
+                     </span>
+                     {copiedInvite && <span className="text-[10px] bg-blue-100 text-[#1877F2] px-1.5 py-0.5 rounded font-bold">Copiado!</span>}
+                   </button>
+                   <a
+                     href={getWhatsAppInviteUrl()}
+                     target="_blank"
+                     rel="noreferrer"
+                     className="w-full text-left px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 flex items-center gap-2"
+                   >
+                     <Share2 className="w-4 h-4 text-emerald-600" />
+                     <span>Convidar Irmão pelo WhatsApp</span>
+                   </a>
                 </div>
 
                 {allMembers.length > 1 && (
@@ -856,7 +857,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
               <button
                 onClick={() => {
-                  const url = `${window.location.origin}${window.location.pathname}?convite=losmotokas`;
+                  const url = getInviteUrl();
                   navigator.clipboard.writeText(url);
                   setCopiedInvite(true);
                   setTimeout(() => setCopiedInvite(false), 2500);
@@ -864,11 +865,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="flex items-center justify-center gap-1.5 flex-1 min-w-[140px] py-2 px-3 bg-white/15 hover:bg-white/25 text-white rounded-lg font-semibold transition-colors cursor-pointer"
               >
                 <UserPlus className="w-3.5 h-3.5" />
-                <span>{copiedInvite ? 'Link Copiado!' : 'Link de Convite'}</span>
+                <span>{copiedInvite ? 'Link Copiado!' : 'Copiar Convite'}</span>
               </button>
 
               <a
-                href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`Irmão, aqui está o seu convite oficial para criar seu perfil na rede social exclusiva do Los Motokas MC (Mossoró/RN): ${typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}?convite=losmotokas` : ''}`)}`}
+                href={getWhatsAppInviteUrl()}
                 target="_blank"
                 rel="noreferrer"
                 onClick={() => setMobileMenuOpen(false)}

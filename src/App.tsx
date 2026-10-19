@@ -17,13 +17,7 @@ import {
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const search = window.location.search;
-      if (search.includes('convite') || search.includes('invite') || search.includes('cadastro')) {
-        return false;
-      }
-    }
-    // Apenas autenticado se existir um perfil real ativo
+    // Mantém o usuário conectado de forma persistente e segura no refresh da página
     const user = store.getCurrentUser();
     return !!user;
   });
@@ -33,9 +27,24 @@ export default function App() {
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [isMobileSettingsOpen, setIsMobileSettingsOpen] = useState(false);
 
+  // Se o usuário já está autenticado, limpa parâmetros residuais da URL (?convite=...) para manter a URL limpa e segura
+  useEffect(() => {
+    if (isAuthenticated && typeof window !== 'undefined' && window.location.search) {
+      try {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } catch (e) {
+        // Ignora caso restrito por ambiente
+      }
+    }
+  }, [isAuthenticated]);
+
   useEffect(() => {
     const unsub = store.subscribe(() => {
-      setCurrentUser(store.getCurrentUser());
+      const user = store.getCurrentUser();
+      setCurrentUser(user);
+      if (!user) {
+        setIsAuthenticated(false);
+      }
     });
     return unsub;
   }, []);
@@ -63,6 +72,11 @@ export default function App() {
       <>
         <AuthView
           onLoginSuccess={(initialTab = 'feed', memberId) => {
+            if (typeof window !== 'undefined' && window.location.search) {
+              try {
+                window.history.replaceState({}, document.title, window.location.pathname);
+              } catch (e) {}
+            }
             setIsAuthenticated(true);
             const user = store.getCurrentUser();
             setCurrentUser(user);

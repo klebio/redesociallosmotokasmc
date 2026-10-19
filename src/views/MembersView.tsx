@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { Profile } from '../types/database';
 import { store } from '../services/store';
+import { getInviteUrl, getWhatsAppInviteUrl } from '../lib/invite';
 
 interface MembersViewProps {
   onNavigateToProfile: (userId: string) => void;
@@ -24,9 +25,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
     return unsub;
   }, []);
 
-  const inviteUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}${window.location.pathname}?convite=losmotokas`
-    : '';
+  const inviteUrl = getInviteUrl();
 
   const handleCopyInvite = () => {
     navigator.clipboard.writeText(inviteUrl);
@@ -79,7 +78,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
                 )}
               </button>
               <a
-                href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`Irmão, aqui está o seu convite oficial para criar seu perfil na rede social exclusiva do Los Motokas MC (Mossoró/RN): ${inviteUrl}`)}`}
+                href={getWhatsAppInviteUrl()}
                 target="_blank"
                 rel="noreferrer"
                 className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-xs flex items-center gap-1.5 transition-colors"

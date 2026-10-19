@@ -90,14 +90,18 @@ export const AuthView: React.FC<AuthViewProps> = ({
     const hasInvite = 
       params.get('convite') || 
       params.get('invite') || 
-      params.get('cadastro') || 
-      window.location.hash.includes('convite') || 
-      window.location.hash.includes('cadastro');
+      window.location.hash.includes('convite');
 
     if (hasInvite) {
       setIsInviteDetected(true);
-      // Ao abrir o link de convite do WhatsApp, abre diretamente o formulário para o irmão criar seu perfil
-      setMode('register');
+      // Ao abrir o link de convite, direciona para a escolha direta: Entrar ou Criar perfil
+      if (params.get('entrar') || params.get('login')) {
+        setMode('login');
+      } else if (params.get('cadastro') || params.get('register')) {
+        setMode('register');
+      } else {
+        setMode('welcome');
+      }
     }
 
     return unsub;
@@ -452,10 +456,13 @@ export const AuthView: React.FC<AuthViewProps> = ({
 
               {/* AVISO DE CONVITE SE HOUVER */}
               {isInviteDetected && (
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-900 flex items-center justify-center gap-2 shadow-2xs">
-                  <Sparkles className="w-4 h-4 text-[#1877F2] shrink-0" />
-                  <span className="font-semibold text-xs">
-                    Link de convite oficial da Diretoria ativo!
+                <div className="bg-emerald-50 border border-emerald-300 rounded-xl p-3.5 text-xs text-emerald-950 flex flex-col items-center justify-center gap-1 shadow-2xs animate-in fade-in">
+                  <div className="flex items-center gap-2 font-black text-emerald-900 text-xs">
+                    <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Convite Oficial da Diretoria Aceito!</span>
+                  </div>
+                  <span className="text-[11px] text-emerald-700 font-medium text-center">
+                    Se você já tem perfil, clique em <strong>Já sou membro</strong>. Se for seu primeiro acesso, clique em <strong>Criar perfil</strong>.
                   </span>
                 </div>
               )}

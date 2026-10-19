@@ -856,7 +856,16 @@ class DataStore {
     const newMedia = (data.mediaUrls || []).map((url, idx) => ({
       id: `media-${newPostId}-${idx}`,
       post_id: newPostId,
-      media_type: (url.endsWith('.mp4') || url.includes('video') ? 'video' : 'photo') as 'photo' | 'video',
+      media_type: (
+        url.endsWith('.mp4') ||
+        url.endsWith('.mov') ||
+        url.endsWith('.webm') ||
+        url.endsWith('.mkv') ||
+        url.includes('video') ||
+        url.startsWith('data:video')
+          ? 'video'
+          : 'photo'
+      ) as 'photo' | 'video',
       url,
       storage_path: `posts/${newPostId}_${idx}`,
       created_at: new Date().toISOString(),
